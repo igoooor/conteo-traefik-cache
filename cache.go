@@ -21,8 +21,14 @@ type Config struct {
 	Cleanup         int      `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
 	AddStatusHeader bool     `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
 	NextGenFormats  []string `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
-	CacheHeaders    []string `json:"cacheHeaders" yaml:"cacheHeaders" toml:"cacheHeaders"`
+	Headers         []string `json:"headers" yaml:"headers" toml:"headers"`
 	BypassHeaders   []string `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
+	Key             *keyContext `json:"key" yaml:"key" toml:"key"`
+}
+
+type keyContext struct {
+	disable_host   bool
+	disable_method bool
 }
 
 // CreateConfig returns a config instance.
@@ -32,8 +38,12 @@ func CreateConfig() *Config {
 		Cleanup:         int((5 * time.Minute).Seconds()),
 		AddStatusHeader: true,
 		NextGenFormats:  []string{},
-		CacheHeaders:    []string{},
+		Headers:         []string{},
 		BypassHeaders:   []string{},
+		Key: &keyContext{
+			disable_host:   false,
+			disable_method: false,
+		},
 	}
 }
 
@@ -88,22 +98,20 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := m.cacheKey(r)
 
 	if r.Method == "DELETE" {
+		rw := &responseWriter{ResponseWriter: w}
+		m.next.ServeHTTP(rw, r)
 		m.cache.Delete(key)
+		
+		return
+	}
+
+	cs := cacheMissStatus
+
+	if m.bypassingHeaders(r) {
 		rw := &responseWriter{ResponseWriter: w}
 		m.next.ServeHTTP(rw, r)
 		
 		return
-	}
-	
-	cs := cacheMissStatus
-
-	for _, header := range m.cfg.BypassHeaders {
-		if r.Header.Get(header) != "" {
-			rw := &responseWriter{ResponseWriter: w}
-			m.next.ServeHTTP(rw, r)
-
-			return
-		}
 	}
 
 	b, err := m.cache.Get(key)
@@ -114,16 +122,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			cs = cacheErrorStatus
 		} else {
-			for key, vals := range data.Headers {
-				for _, val := range vals {
-					w.Header().Add(key, val)
-				}
-			}
-			if m.cfg.AddStatusHeader {
-				w.Header().Set(cacheHeader, cacheHitStatus)
-			}
-			w.WriteHeader(data.Status)
-			_, _ = w.Write(data.Body)
+			m.sendCacheFile(w, data)
 			return
 		}
 	}
@@ -172,26 +171,66 @@ func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (t
 	return expiry, true
 }
 
+func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
+	for key, vals := range data.Headers {
+		for _, val := range vals {
+			w.Header().Add(key, val)
+		}
+	}
+	
+	if m.cfg.AddStatusHeader {
+		w.Header().Set(cacheHeader, cacheHitStatus)
+	}
+
+	w.WriteHeader(data.Status)
+	_, _ = w.Write(data.Body)
+}
+
+func (m *cache) bypassingHeaders(r *http.Request) bool {
+	for _, header := range m.cfg.BypassHeaders {
+		if r.Header.Get(header) != "" {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (m *cache) cacheKey(r *http.Request) string {
-	key := r.Method + r.Host + r.URL.Path
+	key := ""
+	if !m.cfg.Key.disable_method {
+		key += r.Method
+	}
+
+	if !m.cfg.Key.disable_host {
+		key += r.Host
+	}
+
+	key += r.URL.Path
+	
 	headers := ""
-	for _, header := range m.cfg.CacheHeaders {
+	
+	for _, header := range m.cfg.Headers {
 		if r.Header.Get(header) != "" {
 			headers += strings.ReplaceAll(r.Header.Get(header), " ", "")
 		}
 	}
+	
 	if headers != "" {
 		headers = base64.StdEncoding.EncodeToString([]byte(headers))
 		key += headers
 	}
+	
 	if r.Header.Get(acceptHeader) != "" {
 		accept := r.Header.Get(acceptHeader)
 		acceptedFormats := strings.Split(accept, ",")
+		
 		out:
 		for _, format := range m.cfg.NextGenFormats {
 			for _, acceptedFormat := range acceptedFormats {
 				if format == strings.ToLower(acceptedFormat) {
-					key += strings.ReplaceAll(format, "/", "")
+					// key += strings.ReplaceAll(format, "/", "")
+					key += strings.ReplaceAll(format, " ", "")
 					break out
 				}
 			}
