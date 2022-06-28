@@ -226,7 +226,6 @@ func (m *cache) cacheKey(r *http.Request) string {
 		for _, format := range m.cfg.NextGenFormats {
 			for _, acceptedFormat := range acceptedFormats {
 				if format == strings.ToLower(acceptedFormat) {
-					// key += strings.ReplaceAll(format, "/", "")
 					key += "-" + strings.ReplaceAll(format, " ", "")
 					break out
 				}
