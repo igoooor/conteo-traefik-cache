@@ -74,7 +74,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, err
 	}
 
-	log.Printf("DisableHost: %t", cfg.Key.DisableHost)
+	log.Printf("%v", cfg)
 
 	m := &cache{
 		name:  name,
