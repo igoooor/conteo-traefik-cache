@@ -16,7 +16,7 @@ import (
 
 // Config configures the middleware.
 type Config struct {
-	Path            string     `json:"path" yaml:"path" toml:"path"`
+	Path            string     `json:"pxath" yaml:"pxath" toml:"pxath"`
 	MaxExpiry       int        `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
 	Cleanup         int        `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
 	AddStatusHeader bool       `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
