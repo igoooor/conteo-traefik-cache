@@ -97,8 +97,11 @@ type cacheData struct {
 func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := m.cacheKey(r)
 
+	log.Printf("Key: %s", key)
+
 	if r.Method == "DELETE" {
-		m.cache.Delete(key)
+		result := m.cache.Delete(key)
+		log.Printf("%t", result)
 		w.WriteHeader(204)
 		_, _ = w.Write([]byte{})
 		
@@ -202,6 +205,7 @@ func (m *cache) cacheKey(r *http.Request) string {
 		key += "-" + r.Method
 	}
 
+	log.Printf("%t", m.cfg.Key.disable_host)
 	if !m.cfg.Key.disable_host {
 		key += "-" + r.Host
 	}
