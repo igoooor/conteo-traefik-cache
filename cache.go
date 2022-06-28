@@ -16,19 +16,19 @@ import (
 
 // Config configures the middleware.
 type Config struct {
-	Path            string      `json:"path" yaml:"path" toml:"path"`
-	MaxExpiry       int         `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
-	Cleanup         int         `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
-	AddStatusHeader bool        `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
-	NextGenFormats  []string    `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
-	Headers         []string    `json:"headers" yaml:"headers" toml:"headers"`
-	BypassHeaders   []string    `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
-	Key             *keyContext `json:"key" yaml:"key" toml:"key"`
+	Path            string     `json:"path" yaml:"path" toml:"path"`
+	MaxExpiry       int        `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
+	Cleanup         int        `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
+	AddStatusHeader bool       `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
+	NextGenFormats  []string   `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
+	Headers         []string   `json:"headers" yaml:"headers" toml:"headers"`
+	BypassHeaders   []string   `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
+	Key             KeyContext `json:"key" yaml:"key" toml:"key"`
 }
 
-type keyContext struct {
+type KeyContext struct {
 	DisableHost   bool `json:"disable_host" yaml:"disable_host" toml:"disable_host"`
-	disable_method bool `json:"disable_method" yaml:"disable_method" toml:"disable_method"`
+	DisableMethod bool `json:"disable_method" yaml:"disable_method" toml:"disable_method"`
 }
 
 // CreateConfig returns a config instance.
@@ -40,7 +40,7 @@ func CreateConfig() *Config {
 		NextGenFormats:  []string{},
 		Headers:         []string{},
 		BypassHeaders:   []string{},
-		Key: &keyContext{},
+		Key: KeyContext{},
 	}
 }
 
@@ -73,6 +73,8 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("DisableHost: %t", cfg.Key.DisableHost)
 
 	m := &cache{
 		name:  name,
@@ -199,7 +201,7 @@ func (m *cache) bypassingHeaders(r *http.Request) bool {
 
 func (m *cache) cacheKey(r *http.Request) string {
 	key := r.URL.Path
-	if !m.cfg.Key.disable_method {
+	if !m.cfg.Key.DisableMethod {
 		key += "-" + r.Method
 	}
 
