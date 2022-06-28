@@ -23,7 +23,7 @@ type Config struct {
 	NextGenFormats  []string    `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
 	Headers         []string    `json:"headers" yaml:"headers" toml:"headers"`
 	BypassHeaders   []string    `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
-	Key             *keyContext `json:"key" yaml:"key" toml:"key"`
+	Key             keyContext `json:"key" yaml:"key" toml:"key"`
 }
 
 type keyContext struct {
@@ -40,7 +40,7 @@ func CreateConfig() *Config {
 		NextGenFormats:  []string{},
 		Headers:         []string{},
 		BypassHeaders:   []string{},
-		Key: &keyContext{
+		Key: keyContext{
 			DisableHost:   false,
 			disableMethod: false,
 		},
