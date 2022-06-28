@@ -113,18 +113,13 @@ func (c *fileCache) Delete(key string) (bool) {
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
-	if info, err := os.Stat(p); err != nil || info.IsDir() {
-		return false
+	if info, err := os.Stat(p); err == nil && info.IsDir() {
+		_ = os.Remove(p)
+		
+		return true
 	}
 
-	_, err := ioutil.ReadFile(filepath.Clean(p))
-	if err != nil {
-		return false
-	}
-
-	_ = os.Remove(p)
-	
-	return true
+	return false
 }
 
 func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {

@@ -101,6 +101,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "DELETE" {
 		result := m.cache.Delete(key)
+		log.Printf("delete: ")
 		log.Printf("%t", result)
 		w.WriteHeader(204)
 		_, _ = w.Write([]byte{})
