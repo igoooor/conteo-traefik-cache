@@ -99,6 +99,8 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "DELETE" {
 		m.cache.Delete(key)
+		w.WriteHeader(204)
+		_, _ = w.Write([]byte{})
 		
 		return
 	}
@@ -195,16 +197,14 @@ func (m *cache) bypassingHeaders(r *http.Request) bool {
 }
 
 func (m *cache) cacheKey(r *http.Request) string {
-	key := ""
+	key := r.URL.Path
 	if !m.cfg.Key.disable_method {
-		key += r.Method
+		key += "-" + r.Method
 	}
 
 	if !m.cfg.Key.disable_host {
-		key += r.Host
+		key += "-" + r.Host
 	}
-
-	key += r.URL.Path
 	
 	headers := ""
 	
@@ -216,7 +216,7 @@ func (m *cache) cacheKey(r *http.Request) string {
 	
 	if headers != "" {
 		headers = base64.StdEncoding.EncodeToString([]byte(headers))
-		key += headers
+		key += "-" + headers
 	}
 	
 	if r.Header.Get(acceptHeader) != "" {
@@ -228,7 +228,7 @@ func (m *cache) cacheKey(r *http.Request) string {
 			for _, acceptedFormat := range acceptedFormats {
 				if format == strings.ToLower(acceptedFormat) {
 					// key += strings.ReplaceAll(format, "/", "")
-					key += strings.ReplaceAll(format, " ", "")
+					key += "-" + strings.ReplaceAll(format, " ", "")
 					break out
 				}
 			}

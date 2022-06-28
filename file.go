@@ -123,6 +123,7 @@ func (c *fileCache) Delete(key string) (bool) {
 	}
 
 	_ = os.Remove(p)
+	
 	return true
 }
 
