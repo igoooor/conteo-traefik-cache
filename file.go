@@ -107,6 +107,25 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	return b[8:], nil
 }
 
+func (c *fileCache) Delete(key string) (bool) {
+	mu := c.pm.MutexAt(key)
+	mu.RLock()
+	defer mu.RUnlock()
+
+	p := keyPath(c.path, key)
+	if info, err := os.Stat(p); err != nil || info.IsDir() {
+		return false
+	}
+
+	_, err := ioutil.ReadFile(filepath.Clean(p))
+	if err != nil {
+		return false
+	}
+
+	_ = os.Remove(p)
+	return true
+}
+
 func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 	mu := c.pm.MutexAt(key)
 	mu.Lock()

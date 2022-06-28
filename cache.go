@@ -3,10 +3,12 @@ package plugin_simplecache_conteo
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/pquerna/cachecontrol"
@@ -14,10 +16,13 @@ import (
 
 // Config configures the middleware.
 type Config struct {
-	Path            string `json:"path" yaml:"path" toml:"path"`
-	MaxExpiry       int    `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
-	Cleanup         int    `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
-	AddStatusHeader bool   `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
+	Path            string   `json:"path" yaml:"path" toml:"path"`
+	MaxExpiry       int      `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
+	Cleanup         int      `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
+	AddStatusHeader bool     `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
+	NextGenFormats  []string `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
+	CacheHeaders    []string `json:"cacheHeaders" yaml:"cacheHeaders" toml:"cacheHeaders"`
+	BypassHeaders   []string `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
 }
 
 // CreateConfig returns a config instance.
@@ -26,6 +31,9 @@ func CreateConfig() *Config {
 		MaxExpiry:       int((5 * time.Minute).Seconds()),
 		Cleanup:         int((5 * time.Minute).Seconds()),
 		AddStatusHeader: true,
+		NextGenFormats:  []string{},
+		CacheHeaders:    []string{},
+		BypassHeaders:   []string{},
 	}
 }
 
@@ -34,6 +42,7 @@ const (
 	cacheHitStatus   = "hit"
 	cacheMissStatus  = "miss"
 	cacheErrorStatus = "error"
+	acceptHeader     = "Accept"
 )
 
 type cache struct {
@@ -76,9 +85,26 @@ type cacheData struct {
 
 // ServeHTTP serves an HTTP request.
 func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	key := m.cacheKey(r)
+
+	if r.Method == "DELETE" {
+		m.cache.Delete(key)
+		rw := &responseWriter{ResponseWriter: w}
+		m.next.ServeHTTP(rw, r)
+		
+		return
+	}
+	
 	cs := cacheMissStatus
 
-	key := cacheKey(r)
+	for _, header := range m.cfg.BypassHeaders {
+		if r.Header.Get(header) != "" {
+			rw := &responseWriter{ResponseWriter: w}
+			m.next.ServeHTTP(rw, r)
+
+			return
+		}
+	}
 
 	b, err := m.cache.Get(key)
 	if err == nil {
@@ -146,8 +172,33 @@ func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (t
 	return expiry, true
 }
 
-func cacheKey(r *http.Request) string {
-	return r.Method + r.Host + r.URL.Path
+func (m *cache) cacheKey(r *http.Request) string {
+	key := r.Method + r.Host + r.URL.Path
+	headers := ""
+	for _, header := range m.cfg.CacheHeaders {
+		if r.Header.Get(header) != "" {
+			headers += strings.ReplaceAll(r.Header.Get(header), " ", "")
+		}
+	}
+	if headers != "" {
+		headers = base64.StdEncoding.EncodeToString([]byte(headers))
+		key += headers
+	}
+	if r.Header.Get(acceptHeader) != "" {
+		accept := r.Header.Get(acceptHeader)
+		acceptedFormats := strings.Split(accept, ",")
+		out:
+		for _, format := range m.cfg.NextGenFormats {
+			for _, acceptedFormat := range acceptedFormats {
+				if format == strings.ToLower(acceptedFormat) {
+					key += strings.ReplaceAll(format, "/", "")
+					break out
+				}
+			}
+		}
+	}
+
+	return key
 }
 
 type responseWriter struct {
