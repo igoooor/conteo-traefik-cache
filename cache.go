@@ -203,7 +203,7 @@ func (m *cache) cacheKey(r *http.Request) string {
 		key += "-" + r.Method
 	}
 
-	log.Printf("%t", m.cfg.Key.DisableHost)
+	log.Printf("DisableHost: %t", m.cfg.Key.DisableHost)
 	if !m.cfg.Key.DisableHost {
 		key += "-" + r.Host
 	}
