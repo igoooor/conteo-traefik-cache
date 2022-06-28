@@ -16,7 +16,7 @@ import (
 
 // Config configures the middleware.
 type Config struct {
-	Path            string     `json:"pxath" yaml:"pxath" toml:"pxath"`
+	Path            string     `json:"path" yaml:"path" toml:"path"`
 	MaxExpiry       int        `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
 	Cleanup         int        `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
 	AddStatusHeader bool       `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
@@ -27,8 +27,8 @@ type Config struct {
 }
 
 type KeyContext struct {
-	DisableHost   bool `json:"disable_host" yaml:"disable_host" toml:"disable_host"`
-	DisableMethod bool `json:"disable_method" yaml:"disable_method" toml:"disable_method"`
+	DisableHost   bool `json:"disableHost" yaml:"disableHost" toml:"disableHost"`
+	DisableMethod bool `json:"disableMethod" yaml:"disableMethod" toml:"disableMethod"`
 }
 
 // CreateConfig returns a config instance.
@@ -40,7 +40,7 @@ func CreateConfig() *Config {
 		NextGenFormats:  []string{},
 		Headers:         []string{},
 		BypassHeaders:   []string{},
-		Key: KeyContext{},
+		Key:             KeyContext{},
 	}
 }
 
@@ -74,8 +74,6 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, err
 	}
 
-	log.Printf("%v", cfg)
-
 	m := &cache{
 		name:  name,
 		cache: fc,
@@ -100,8 +98,6 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "DELETE" {
 		result := m.cache.Delete(key)
-		log.Printf("delete: ")
-		log.Printf("%t", result)
 		w.WriteHeader(204)
 		_, _ = w.Write([]byte{})
 		
@@ -205,7 +201,6 @@ func (m *cache) cacheKey(r *http.Request) string {
 		key += "-" + r.Method
 	}
 
-	log.Printf("DisableHost: %t", m.cfg.Key.DisableHost)
 	if !m.cfg.Key.DisableHost {
 		key += "-" + r.Host
 	}
