@@ -23,12 +23,12 @@ type Config struct {
 	NextGenFormats  []string    `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
 	Headers         []string    `json:"headers" yaml:"headers" toml:"headers"`
 	BypassHeaders   []string    `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
-	Key             keyContext `json:"key" yaml:"key" toml:"key"`
+	Key             *keyContext `json:"key" yaml:"key" toml:"key"`
 }
 
 type keyContext struct {
 	DisableHost   bool `json:"disable_host" yaml:"disable_host" toml:"disable_host"`
-	disableMethod bool `json:"disable_method" yaml:"disable_method" toml:"disable_method"`
+	disable_method bool `json:"disable_method" yaml:"disable_method" toml:"disable_method"`
 }
 
 // CreateConfig returns a config instance.
@@ -40,7 +40,7 @@ func CreateConfig() *Config {
 		NextGenFormats:  []string{},
 		Headers:         []string{},
 		BypassHeaders:   []string{},
-		Key: keyContext{},
+		Key: &keyContext{},
 	}
 }
 
@@ -199,7 +199,7 @@ func (m *cache) bypassingHeaders(r *http.Request) bool {
 
 func (m *cache) cacheKey(r *http.Request) string {
 	key := r.URL.Path
-	if !m.cfg.Key.disableMethod {
+	if !m.cfg.Key.disable_method {
 		key += "-" + r.Method
 	}
 
