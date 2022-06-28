@@ -98,8 +98,6 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := m.cacheKey(r)
 
 	if r.Method == "DELETE" {
-		rw := &responseWriter{ResponseWriter: w}
-		m.next.ServeHTTP(rw, r)
 		m.cache.Delete(key)
 		
 		return
