@@ -16,19 +16,19 @@ import (
 
 // Config configures the middleware.
 type Config struct {
-	Path            string   `json:"path" yaml:"path" toml:"path"`
-	MaxExpiry       int      `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
-	Cleanup         int      `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
-	AddStatusHeader bool     `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
-	NextGenFormats  []string `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
-	Headers         []string `json:"headers" yaml:"headers" toml:"headers"`
-	BypassHeaders   []string `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
+	Path            string      `json:"path" yaml:"path" toml:"path"`
+	MaxExpiry       int         `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
+	Cleanup         int         `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
+	AddStatusHeader bool        `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
+	NextGenFormats  []string    `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
+	Headers         []string    `json:"headers" yaml:"headers" toml:"headers"`
+	BypassHeaders   []string    `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
 	Key             *keyContext `json:"key" yaml:"key" toml:"key"`
 }
 
 type keyContext struct {
-	disable_host   bool
-	disable_method bool
+	DisableHost   bool `json:"disable_host" yaml:"disable_host" toml:"disable_host"`
+	disableMethod bool `json:"disable_method" yaml:"disable_method" toml:"disable_method"`
 }
 
 // CreateConfig returns a config instance.
@@ -41,8 +41,8 @@ func CreateConfig() *Config {
 		Headers:         []string{},
 		BypassHeaders:   []string{},
 		Key: &keyContext{
-			disable_host:   false,
-			disable_method: false,
+			DisableHost:   false,
+			disableMethod: false,
 		},
 	}
 }
@@ -202,12 +202,12 @@ func (m *cache) bypassingHeaders(r *http.Request) bool {
 
 func (m *cache) cacheKey(r *http.Request) string {
 	key := r.URL.Path
-	if !m.cfg.Key.disable_method {
+	if !m.cfg.Key.disableMethod {
 		key += "-" + r.Method
 	}
 
-	log.Printf("%t", m.cfg.Key.disable_host)
-	if !m.cfg.Key.disable_host {
+	log.Printf("%t", m.cfg.Key.DisableHost)
+	if !m.cfg.Key.DisableHost {
 		key += "-" + r.Host
 	}
 	
