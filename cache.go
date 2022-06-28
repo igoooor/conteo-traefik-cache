@@ -40,10 +40,7 @@ func CreateConfig() *Config {
 		NextGenFormats:  []string{},
 		Headers:         []string{},
 		BypassHeaders:   []string{},
-		Key: keyContext{
-			DisableHost:   false,
-			disableMethod: false,
-		},
+		Key: keyContext{},
 	}
 }
 
