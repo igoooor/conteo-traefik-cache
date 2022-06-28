@@ -1,7 +1,0 @@
-displayName: Simple Cache Conteo
-summary: Simple cache plugin middleware caches responses on disk.
-type: middleware
-import: github.com/igoooor/plugin-simplecache
-compatibility: TODO
-testData:
-  path: /tmp
