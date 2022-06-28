@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"hash/crc32"
 	"io/ioutil"
 	"os"
@@ -113,6 +114,7 @@ func (c *fileCache) Delete(key string) (bool) {
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
+	log.Printf("Deleting: %s", p)
 	if info, err := os.Stat(p); err == nil && info.IsDir() {
 		_ = os.Remove(p)
 		
