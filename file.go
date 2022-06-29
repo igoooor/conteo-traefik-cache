@@ -60,13 +60,16 @@ func (c *fileCache) vacuum(interval time.Duration) {
 	defer timer.Stop()
 
 	for range timer.C {
+		log.Println(">>> vaccum file cache")
 		_ = filepath.Walk(c.path, func(path string, info os.FileInfo, err error) error {
+			log.Println(">>> vaccum: loop: ", filepath.Clean(path))
 			switch {
 			case err != nil:
 				return err
 			case info.IsDir():
 				return nil
 			}
+			log.Println(">>> vaccum: Lock: ", filepath.Clean(path))
 
 			mu := c.pm.MutexAt(filepath.Base(path))
 			mu.Lock()
@@ -82,14 +85,16 @@ func (c *fileCache) vacuum(interval time.Duration) {
 			// var data CacheItem
 			err = json.Unmarshal([]byte(rawData), &data)
 			if err != nil {
-				log.Println(">>> not a valid file to delete: ", filepath.Clean(path))
+				log.Println(">>> vaccum: not a valid file to delete: ", filepath.Clean(path))
 				return nil
 			}
+			log.Println(">>> vaccum: read: ", filepath.Clean(path))
 
 			expires := time.Unix(int64(data.Expiry), 0)
 			if !expires.Before(time.Now()) {
 				return nil
 			}
+			log.Println(">>> vaccum: expired: ", filepath.Clean(path))
 
 			// Delete the file.
 			_ = os.Remove(path)
