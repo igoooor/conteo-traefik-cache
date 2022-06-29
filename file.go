@@ -184,7 +184,7 @@ func (c *fileCache) DeleteAll(flushType string) {
 			data := CacheItem{}
 			// var data CacheItem
 			err = json.Unmarshal([]byte(rawData), &data)
-			if err == nil {
+			if err != nil {
 				log.Println(">>> not a valid file to delete: ", filepath.Clean(path))
 				return nil
 			}
