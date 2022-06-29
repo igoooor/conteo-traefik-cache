@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"hash/crc32"
 	"io/ioutil"
 	"os"
@@ -91,12 +92,12 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
-	/*if val, ok := c.items[p]; ok {
-		// fmt.Println(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
+	if val, ok := c.items[p]; ok {
+		log.Printf(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
 		return val, nil
-	}*/
+	}
 
-	fmt.Println(">>>>>>>>>>>>>>>>>>> file cache hit")
+	log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
 
 	if info, err := os.Stat(p); err != nil || info.IsDir() {
 		return nil, errCacheMiss
