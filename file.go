@@ -175,15 +175,17 @@ func (c *fileCache) DeleteAll(flushType string) {
 			mu.Lock()
 			defer mu.Unlock()
 
-			rawData, err := ioutil.ReadFile(filepath.Base(path))
+			rawData, err := ioutil.ReadFile(filepath.Clean(path))
 			if err != nil {
+				log.Println("read error")
+				log.Println(err)
 				return nil
 			}
 			data := CacheItem{}
 			// var data CacheItem
 			err = json.Unmarshal([]byte(rawData), &data)
 			if err == nil {
-				log.Println(">>> not a valid file to delete: ", filepath.Base(path))
+				log.Println(">>> not a valid file to delete: ", filepath.Clean(path))
 				return nil
 			}
 
