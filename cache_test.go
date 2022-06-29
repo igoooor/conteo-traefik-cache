@@ -17,33 +17,33 @@ func TestNew(t *testing.T) {
 	}{
 		{
 			name:    "should error if path is not valid",
-			cfg:     &Config{Path: "/foo/bar", MaxExpiry: 300, Cleanup: 600, Key: &keyContext{
-				disable_host:   false,
-				disable_method: false,
+			cfg:     &Config{Path: "/foo/bar", MaxExpiry: 300, Cleanup: 600, Key: KeyContext{
+				DisableHost:   false,
+				DisableMethod: false,
 			}},
 			wantErr: true,
 		},
 		{
 			name:    "should error if maxExpiry <= 1",
-			cfg:     &Config{Path: os.TempDir(), MaxExpiry: 1, Cleanup: 600, Key: &keyContext{
-				disable_host:   false,
-				disable_method: false,
+			cfg:     &Config{Path: os.TempDir(), MaxExpiry: 1, Cleanup: 600, Key: KeyContext{
+				DisableHost:   false,
+				DisableMethod: false,
 			}},
 			wantErr: true,
 		},
 		{
 			name:    "should error if cleanup <= 1",
-			cfg:     &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 1, Key: &keyContext{
-				disable_host:   false,
-				disable_method: false,
+			cfg:     &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 1, Key: KeyContext{
+				DisableHost:   false,
+				DisableMethod: false,
 			}},
 			wantErr: true,
 		},
 		{
 			name:    "should be valid",
-			cfg:     &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 600, Key: &keyContext{
-				disable_host:   false,
-				disable_method: false,
+			cfg:     &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 600, Key: KeyContext{
+				DisableHost:   false,
+				DisableMethod: false,
 			}},
 			wantErr: false,
 		},
@@ -68,9 +68,9 @@ func TestCache_ServeHTTP(t *testing.T) {
 		rw.WriteHeader(http.StatusOK)
 	}
 
-	cfg := &Config{Path: dir, MaxExpiry: 10, Cleanup: 20, AddStatusHeader: true, Key: &keyContext{
-		disable_host:   false,
-		disable_method: false,
+	cfg := &Config{Path: dir, MaxExpiry: 10, Cleanup: 20, AddStatusHeader: true, Key: KeyContext{
+		DisableHost:   false,
+		DisableMethod: false,
 	}}
 
 	c, err := New(context.Background(), http.HandlerFunc(next), cfg, "simplecache")

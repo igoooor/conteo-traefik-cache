@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,19 +17,30 @@ import (
 
 // Config configures the middleware.
 type Config struct {
-	Path            string     `json:"path" yaml:"path" toml:"path"`
-	MaxExpiry       int        `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
-	Cleanup         int        `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
-	AddStatusHeader bool       `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
-	NextGenFormats  []string   `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
-	Headers         []string   `json:"headers" yaml:"headers" toml:"headers"`
-	BypassHeaders   []string   `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
-	Key             KeyContext `json:"key" yaml:"key" toml:"key"`
+	Path            string                                      `json:"path" yaml:"path" toml:"path"`
+	MaxExpiry       int                                         `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
+	Cleanup         int                                         `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
+	AddStatusHeader bool                                        `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
+	NextGenFormats  []string                                    `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
+	Headers         []string                                    `json:"headers" yaml:"headers" toml:"headers"`
+	BypassHeaders   []string                                    `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
+	Key             KeyContext                                  `json:"key" yaml:"key" toml:"key"`
+	SurrogateKeys   map[string]SurrogateKeys `json:"surrogateKeys" yaml:"surrogateKeys" toml:"surrogateKeys"`
 }
 
 type KeyContext struct {
 	DisableHost   bool `json:"disableHost" yaml:"disableHost" toml:"disableHost"`
 	DisableMethod bool `json:"disableMethod" yaml:"disableMethod" toml:"disableMethod"`
+}
+
+type SurrogateKeys struct {
+	URL     string            `json:"url" yaml:"url"`
+	Headers map[string]string `json:"headers" yaml:"headers"`
+}
+
+type keysRegexpInner struct {
+	Headers map[string]*regexp.Regexp
+	Url     *regexp.Regexp
 }
 
 // CreateConfig returns a config instance.
@@ -49,14 +61,17 @@ const (
 	cacheHitStatus   = "hit"
 	cacheMissStatus  = "miss"
 	cacheErrorStatus = "error"
+	flushHeader      = "X-Conteo-Flush"
 	acceptHeader     = "Accept"
 )
 
 type cache struct {
-	name  string
-	cache *fileCache
-	cfg   *Config
-	next  http.Handler
+	name       string
+	cache      *fileCache
+	cfg        *Config
+	next       http.Handler
+	keysRegexp map[string]keysRegexpInner
+	items      map[string]string
 }
 
 // New returns a plugin instance.
@@ -74,11 +89,35 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, err
 	}
 
+	keysRegexp := make(map[string]keysRegexpInner, len(cfg.SurrogateKeys))
+	// baseRegexp := regexp.MustCompile(".+")
+
+	for key, regexps := range cfg.SurrogateKeys {
+		headers := make(map[string]*regexp.Regexp, len(regexps.Headers))
+		for hk, hv := range regexps.Headers {
+			//headers[hk] = baseRegexp
+			headers[hk] = nil
+			if hv != "" {
+				headers[hk] = regexp.MustCompile(hv)
+			}
+		}
+
+		//innerKey := keysRegexpInner{Headers: headers, Url: baseRegexp}
+		innerKey := keysRegexpInner{Headers: headers, Url: nil}
+
+		if regexps.URL != "" {
+			innerKey.Url = regexp.MustCompile(regexps.URL)
+		}
+
+		keysRegexp[key] = innerKey
+	}
+
 	m := &cache{
-		name:  name,
-		cache: fc,
-		cfg:   cfg,
-		next:  next,
+		name:       name,
+		cache:      fc,
+		cfg:        cfg,
+		next:       next,
+		keysRegexp: keysRegexp,
 	}
 
 	return m, nil
@@ -97,10 +136,13 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Key: %s", key)
 
 	if r.Method == "DELETE" {
-		result := m.cache.Delete(key)
+		if r.Header.Get(flushHeader) != "" {
+			m.cache.DeleteAll()
+		}
+		
 		w.WriteHeader(204)
 		_, _ = w.Write([]byte{})
-		
+
 		return
 	}
 
@@ -149,6 +191,8 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error serializing cache item: %v", err)
 	}
 
+	// matchSurrogateKeys := m.matchSurrogateKeys(r)
+
 	if err = m.cache.Set(key, b, expiry); err != nil {
 		log.Printf("Error setting cache item: %v", err)
 	}
@@ -193,6 +237,12 @@ func (m *cache) bypassingHeaders(r *http.Request) bool {
 	}
 
 	return false
+}
+
+func (m *cache) matchSurrogateKeys(r *http.Request) []string {
+	matchKeys := []string{}
+
+	return matchKeys
 }
 
 func (m *cache) cacheKey(r *http.Request) string {
