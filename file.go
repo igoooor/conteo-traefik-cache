@@ -100,6 +100,7 @@ func (c *fileCache) vacuum(interval time.Duration) {
 
 func (c *fileCache) readFromMemory(path string) (CacheItem, bool) {
 	var data = CacheItem{}
+	log.Printf(">>>>>>>>>>>>>>>>>>> c.memory: %v", c.memory)
 	if c.memory {
 		var ok bool
 		data, ok = c.items[path]
@@ -120,7 +121,7 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	p := keyPath(c.path, key)
 	//foundInMemory := false
 	var data = CacheItem{}
-	data, foundInMemory := c.readFromMemory(key)
+	data, foundInMemory := c.readFromMemory(p)
 	/*if c.memory {
 		var ok bool
 		data, ok = c.items[p]
@@ -132,8 +133,6 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	}*/
 
 	if !foundInMemory {
-		log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
-
 		if info, err := os.Stat(p); err != nil || info.IsDir() {
 			return nil, errCacheMiss
 		}
@@ -148,6 +147,7 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 			_ = os.Remove(p)
 			return nil, errCacheMiss
 		}
+		log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
 	}
 
 	expires := time.Unix(int64(data.Expiry), 0)
