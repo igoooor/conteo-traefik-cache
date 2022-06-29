@@ -21,6 +21,7 @@ type Config struct {
 	MaxExpiry       int                                         `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
 	Cleanup         int                                         `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
 	AddStatusHeader bool                                        `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
+	FlushHeader     string                                      `json:"flushHeader" yaml:"flushHeader" toml:"flushHeader"`
 	NextGenFormats  []string                                    `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
 	Headers         []string                                    `json:"headers" yaml:"headers" toml:"headers"`
 	BypassHeaders   []string                                    `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
@@ -49,6 +50,7 @@ func CreateConfig() *Config {
 		MaxExpiry:       int((5 * time.Minute).Seconds()),
 		Cleanup:         int((5 * time.Minute).Seconds()),
 		AddStatusHeader: true,
+		FlushHeader:      "X-Cache-Flush",
 		NextGenFormats:  []string{},
 		Headers:         []string{},
 		BypassHeaders:   []string{},
@@ -61,7 +63,6 @@ const (
 	cacheHitStatus   = "hit"
 	cacheMissStatus  = "miss"
 	cacheErrorStatus = "error"
-	flushHeader      = "X-Conteo-Flush"
 	acceptHeader     = "Accept"
 )
 
@@ -136,12 +137,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Key: %s", key)
 
 	if r.Method == "DELETE" {
-		if r.Header.Get(flushHeader) != "" {
-			m.cache.DeleteAll()
-		}
-		
-		w.WriteHeader(204)
-		_, _ = w.Write([]byte{})
+		m.flushAllCache(r, w)
 
 		return
 	}
@@ -214,6 +210,15 @@ func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (t
 	return expiry, true
 }
 
+func (m *cache) flushAllCache(r *http.Request, w http.ResponseWriter) {
+	if r.Header.Get(m.cfg.FlushHeader) != "" {
+		m.cache.DeleteAll()
+	}
+	
+	w.WriteHeader(204)
+	_, _ = w.Write([]byte{})
+}
+
 func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
 	for key, vals := range data.Headers {
 		for _, val := range vals {
@@ -246,7 +251,7 @@ func (m *cache) matchSurrogateKeys(r *http.Request) []string {
 }
 
 func (m *cache) cacheKey(r *http.Request) string {
-	key := r.URL.Path
+	key := ""
 	if !m.cfg.Key.DisableMethod {
 		key += "-" + r.Method
 	}
@@ -254,6 +259,8 @@ func (m *cache) cacheKey(r *http.Request) string {
 	if !m.cfg.Key.DisableHost {
 		key += "-" + r.Host
 	}
+
+	key += "-" + r.URL.Path
 	
 	headers := ""
 	
