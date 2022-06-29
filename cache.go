@@ -234,6 +234,10 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
 }
 
 func (m *cache) bypassingHeaders(r *http.Request) bool {
+	if r.Header.Get("Cache-Control") == "no-cache" {
+		return true
+	}
+
 	for _, header := range m.cfg.BypassHeaders {
 		if r.Header.Get(header) != "" {
 			return true
