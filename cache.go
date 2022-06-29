@@ -66,7 +66,7 @@ func CreateConfig() *Config {
 const (
 	cacheHeader      = "Cache-Status"
 	ageHeader        = "Age"
-	cacheHitStatus   = "hit, ttl=%d"
+	cacheHitStatus   = "hit; ttl=%d"
 	cacheMissStatus  = "miss"
 	cacheErrorStatus = "error"
 	acceptHeader     = "Accept"
@@ -175,7 +175,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(cacheHeader, cs)
 	}
 
-	log.Println("--------- cache miss:", key)
+	// log.Println("--------- cache miss:", key)
 	rw := &responseWriter{ResponseWriter: w}
 	m.next.ServeHTTP(rw, r)
 
