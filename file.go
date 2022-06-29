@@ -121,7 +121,11 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	}
 	data := CacheItem{}
 	// var data CacheItem
-	_ = json.Unmarshal([]byte(rawData), &data)
+	err = json.Unmarshal([]byte(rawData), &data)
+	if err != nil {
+		_ = os.Remove(p)
+		return nil, errCacheMiss
+	}
 
 	//log.Println("xxxxx")
 	//log.Printf("Struct: %#v\n", data)
@@ -171,9 +175,21 @@ func (c *fileCache) DeleteAll(flushType string) {
 			mu.Lock()
 			defer mu.Unlock()
 
+			rawData, err := ioutil.ReadFile(filepath.Base(path))
+			if err != nil {
+				return nil
+			}
+			data := CacheItem{}
+			// var data CacheItem
+			err = json.Unmarshal([]byte(rawData), &data)
+			if err == nil {
+				log.Println(">>> not a valid file to delete: ", filepath.Base(path))
+				return nil
+			}
+
 			// Get the expiry.
-			var t [8]byte
-			f, err := os.Open(filepath.Clean(path))
+			//var t [8]byte
+			/*f, err := os.Open(filepath.Clean(path))
 			if err != nil {
 				// Just skip the file in this case.
 				return nil // nolint:nilerr // skip
@@ -181,7 +197,7 @@ func (c *fileCache) DeleteAll(flushType string) {
 			if n, err := f.Read(t[:]); err != nil && n != 8 {
 				return nil
 			}
-			_ = f.Close()
+			_ = f.Close()*/
 
 			// Delete the file.
 			_ = os.Remove(path)
