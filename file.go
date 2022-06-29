@@ -4,7 +4,6 @@ package plugin_simplecache_conteo
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -20,20 +19,11 @@ import (
 var errCacheMiss = errors.New("cache miss")
 
 type fileCache struct {
-	path   string
-	pm     *pathMutex
-	items  map[string]CacheItem
-	memory bool
+	path string
+	pm   *pathMutex
 }
 
-type CacheItem struct {
-	Value        string `json:"v"`
-	Created      uint64 `json:"c"`
-	Expiry       uint64 `json:"e"`
-	LastAccessed uint64 `json:"l"`
-}
-
-func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, error) {
+func newFileCache(path string, vacuum time.Duration) (*fileCache, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("invalid cache path: %w", err)
@@ -44,10 +34,8 @@ func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, e
 	}
 
 	fc := &fileCache{
-		path:   path,
-		pm:     &pathMutex{lock: map[string]*fileLock{}},
-		items:  map[string]CacheItem{},
-		memory: memory,
+		path: path,
+		pm:   &pathMutex{lock: map[string]*fileLock{}},
 	}
 
 	go fc.vacuum(vacuum)
@@ -60,65 +48,40 @@ func (c *fileCache) vacuum(interval time.Duration) {
 	defer timer.Stop()
 
 	for range timer.C {
-		log.Println(">>> vaccum file cache")
 		_ = filepath.Walk(c.path, func(path string, info os.FileInfo, err error) error {
-			log.Println(">>> vaccum: loop: ", filepath.Clean(path))
 			switch {
 			case err != nil:
 				return err
 			case info.IsDir():
 				return nil
 			}
-			log.Println(">>> vaccum: After Switch: ", filepath.Clean(path))
 
 			mu := c.pm.MutexAt(filepath.Base(path))
-			log.Println(">>> vaccum: After Mutex: ", filepath.Clean(path))
 			mu.Lock()
-			log.Println(">>> vaccum: After Lock: ", filepath.Clean(path))
 			defer mu.Unlock()
-			log.Println(">>> vaccum: After UnLock: ", filepath.Clean(path))
 
-			rawData, err := ioutil.ReadFile(filepath.Clean(path))
+			// Get the expiry.
+			var t [8]byte
+			f, err := os.Open(filepath.Clean(path))
 			if err != nil {
-				log.Println("read error")
-				log.Println(err)
+				// Just skip the file in this case.
+				return nil // nolint:nilerr // skip
+			}
+			if n, err := f.Read(t[:]); err != nil && n != 8 {
 				return nil
 			}
-			data := CacheItem{}
-			// var data CacheItem
-			err = json.Unmarshal([]byte(rawData), &data)
-			if err != nil {
-				log.Println(">>> vaccum: not a valid file to delete: ", filepath.Clean(path))
-				return nil
-			}
-			log.Println(">>> vaccum: read: ", filepath.Clean(path))
+			_ = f.Close()
 
-			expires := time.Unix(int64(data.Expiry), 0)
+			expires := time.Unix(int64(binary.LittleEndian.Uint64(t[:])), 0)
 			if !expires.Before(time.Now()) {
-				log.Println(">>> vaccum: NOT expired: ", filepath.Clean(path))
 				return nil
 			}
-			log.Println(">>> vaccum: expired: ", filepath.Clean(path))
 
 			// Delete the file.
 			_ = os.Remove(path)
 			return nil
 		})
 	}
-}
-
-func (c *fileCache) readFromMemory(path string) (CacheItem, bool) {
-	var data = CacheItem{}
-	if c.memory {
-		var ok bool
-		data, ok = c.items[path]
-		if ok {
-			log.Printf(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
-			return data, true
-		}
-	}
-
-	return data, false
 }
 
 func (c *fileCache) Get(key string) ([]byte, error) {
@@ -127,94 +90,22 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
-	var data = CacheItem{}
-	data, foundInMemory := c.readFromMemory(p)
-
-	if !foundInMemory {
-		if info, err := os.Stat(p); err != nil || info.IsDir() {
-			return nil, errCacheMiss
-		}
-
-		rawData, err := ioutil.ReadFile(filepath.Clean(p))
-		if err != nil {
-			return nil, fmt.Errorf("error reading file %q: %w", p, err)
-		}
-
-		err = json.Unmarshal([]byte(rawData), &data)
-		if err != nil {
-			_ = os.Remove(p)
-			return nil, errCacheMiss
-		}
-		log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
+	if info, err := os.Stat(p); err != nil || info.IsDir() {
+		return nil, errCacheMiss
 	}
 
-	expires := time.Unix(int64(data.Expiry), 0)
+	b, err := ioutil.ReadFile(filepath.Clean(p))
+	if err != nil {
+		return nil, fmt.Errorf("error reading file %q: %w", p, err)
+	}
+
+	expires := time.Unix(int64(binary.LittleEndian.Uint64(b[:8])), 0)
 	if expires.Before(time.Now()) {
 		_ = os.Remove(p)
 		return nil, errCacheMiss
 	}
 
-	// store it back into memory
-	if c.memory && !foundInMemory {
-		c.items[p] = data
-	}
-
-	return []byte(data.Value), nil
-}
-
-func (c *fileCache) DeleteAll(flushType string) {
-	if flushType == "all" || flushType == "file" {
-		log.Println(">>> delete file cache")
-		_ = filepath.Walk(c.path, func(path string, info os.FileInfo, err error) error {
-			log.Println(">>> loop: ", filepath.Clean(path))
-			switch {
-			case err != nil:
-				return err
-			case info.IsDir():
-				return nil
-			}
-
-			log.Println(">>> Lock: ", filepath.Clean(path))
-
-			mu := c.pm.MutexAt(filepath.Base(path))
-			mu.Lock()
-			defer mu.Unlock()
-
-			rawData, err := ioutil.ReadFile(filepath.Clean(path))
-			if err != nil {
-				log.Println("read error")
-				log.Println(err)
-				return nil
-			}
-			log.Println(">>> read: ", filepath.Clean(path))
-			data := CacheItem{}
-			// var data CacheItem
-			err = json.Unmarshal([]byte(rawData), &data)
-			if err != nil {
-				log.Println(">>> not a valid file to delete: ", filepath.Clean(path))
-				return nil
-			}
-
-			// Get the expiry.
-			//var t [8]byte
-			/*f, err := os.Open(filepath.Clean(path))
-			if err != nil {
-				// Just skip the file in this case.
-				return nil // nolint:nilerr // skip
-			}
-			if n, err := f.Read(t[:]); err != nil && n != 8 {
-				return nil
-			}
-			_ = f.Close()*/
-
-			// Delete the file.
-			_ = os.Remove(path)
-			return nil
-		})
-	}
-	if c.memory && (flushType == "all" || flushType == "memory") {
-		c.items = map[string]CacheItem{}
-	}
+	return b[8:], nil
 }
 
 func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
@@ -236,36 +127,18 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 		_ = f.Close()
 	}()
 
-	//timestamp := uint64(time.Now().Add(expiry).Unix())
+	timestamp := uint64(time.Now().Add(expiry).Unix())
 
-	//var t [8]byte
+	var t [8]byte
 
-	/*binary.LittleEndian.PutUint64(t[:], timestamp)
+	binary.LittleEndian.PutUint64(t[:], timestamp)
 
 	if _, err = f.Write(t[:]); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
-	}*/
-
-	nowTimestamp := uint64(time.Now().Unix())
-
-	item := &CacheItem{
-		Value:        string(val),
-		Created:      nowTimestamp,
-		Expiry:       uint64(time.Now().Add(expiry).Unix()),
-		LastAccessed: nowTimestamp,
 	}
 
-	jsonData, err := json.Marshal(item)
-	if err != nil {
-		return fmt.Errorf("error json marshal: %w", err)
-	}
-
-	if _, err = f.Write(jsonData); err != nil {
+	if _, err = f.Write(val); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
-	}
-
-	if c.memory {
-		c.items[p] = *item
 	}
 
 	return nil
