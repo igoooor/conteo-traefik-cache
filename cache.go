@@ -137,7 +137,9 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := m.cacheKey(r)
 
 	if r.Method == "DELETE" {
-		m.flushAllCache(r, w)
+		w.WriteHeader(204)
+		_, _ = w.Write([]byte{})
+		m.flushAllCache(r)
 
 		return
 	}
@@ -211,13 +213,10 @@ func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (t
 	return expiry, true
 }
 
-func (m *cache) flushAllCache(r *http.Request, w http.ResponseWriter) {
+func (m *cache) flushAllCache(r *http.Request) {
 	if flushType := r.Header.Get(m.cfg.FlushHeader); flushType != "" {
 		m.cache.DeleteAll(flushType)
 	}
-
-	w.WriteHeader(204)
-	_, _ = w.Write([]byte{})
 }
 
 func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
