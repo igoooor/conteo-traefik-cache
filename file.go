@@ -260,31 +260,9 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 		return fmt.Errorf("error json marshal: %w", err)
 	}
 
-	/*timestamp := uint64(time.Now().Add(expiry).Unix())
-
-	var t [8]byte
-
-	binary.LittleEndian.PutUint64(t[:], timestamp)*/
-
-	//log.Println(jsonData)
-	//log.Println(string(jsonData))
-
-	//file, _ := json.MarshalIndent(item, "", " ")
-	//log.Printf(">>>>>>>>>>>>>>>>>>>>> %s", file)
 	if _, err = f.Write(jsonData); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
 	}
-
-	/*log.Println("------------------")
-	log.Println(string(jsonData))
-	jsonData = append(t[:8], jsonData...)
-	log.Println(string(jsonData))
-	log.Println("==================")
-
-	err = ioutil.WriteFile(filepath.Clean(p), jsonData, 0600)
-	if err != nil {
-		return fmt.Errorf("error writing file: %w", err)
-	}*/
 
 	if c.memory {
 		c.items[p] = *item
@@ -338,7 +316,10 @@ func (m *pathMutex) MutexAt(path string) *fileLock {
 		defer m.mu.Unlock()
 
 		fl.ref--
+		log.Println(">>> Lock cleanup, path: ", path)
+		log.Println(">>> Lock cleanup, fl.ref: ", fl.ref)
 		if fl.ref == 0 {
+			log.Println(">>> ref = 0, delete lock: ", path)
 			delete(m.lock, path)
 		}
 	}
