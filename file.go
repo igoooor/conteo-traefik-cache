@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"hash/crc32"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,10 +26,11 @@ type fileCache struct {
 	memory bool
 }
 
-type cacheItem struct {
-	value        []byte
-	created      time.Time
-	lastAccessed time.Time
+type CacheItem struct {
+	Value        string `json:"v"`
+	Created      uint64 `json:"c"`
+	Expiry       uint64 `json:"e"`
+	LastAccessed uint64 `json:"l"`
 }
 
 func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, error) {
@@ -43,9 +44,9 @@ func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, e
 	}
 
 	fc := &fileCache{
-		path:  path,
-		pm:    &pathMutex{lock: map[string]*fileLock{}},
-		items: map[string][]byte{},
+		path:   path,
+		pm:     &pathMutex{lock: map[string]*fileLock{}},
+		items:  map[string][]byte{},
 		memory: memory,
 	}
 
@@ -118,31 +119,52 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading file %q: %w", p, err)
 	}
-	data := cacheItem{}
+	data := CacheItem{}
+	// var data CacheItem
 	_ = json.Unmarshal([]byte(rawData), &data)
 
-	expires := time.Unix(int64(binary.LittleEndian.Uint64(data.value[:8])), 0)
+	//log.Println("xxxxx")
+	//log.Printf("Struct: %#v\n", data)
+	//log.Println(data.Value)
+	//log.Println(data.Expiry)
+	//log.Println(time.Unix(int64(data.Expiry), 0))
+
+	//log.Println("yyyyy")
+
+	//b := []byte(data.Value)
+	//log.Println(">>>")
+	//log.Println(data.Value)
+	//log.Printf("@@")
+	//log.Println(rawData)
+	//log.Printf("--")
+	//return nil, nil
+	expires := time.Unix(int64(data.Expiry), 0)
 	if expires.Before(time.Now()) {
 		_ = os.Remove(p)
 		return nil, errCacheMiss
 	}
+	/*expires := time.Unix(int64(binary.LittleEndian.Uint64(b[:8])), 0)
+	if expires.Before(time.Now()) {
+		_ = os.Remove(p)
+		return nil, errCacheMiss
+	}*/
 
 	// store it back into memory
 	if c.memory {
-		c.items[p] = data.value[8:]
+		c.items[p] = []byte(data.Value)
 	}
 
-	return data.value[8:], nil
+	return []byte(data.Value), nil
 }
 
 func (c *fileCache) DeleteAll(flushType string) {
 	if flushType == "all" || flushType == "file" {
 		_ = filepath.Walk(c.path, func(path string, info os.FileInfo, err error) error {
 			switch {
-				case err != nil:
-					return err
-				case info.IsDir():
-					return nil
+			case err != nil:
+				return err
+			case info.IsDir():
+				return nil
 			}
 
 			mu := c.pm.MutexAt(filepath.Base(path))
@@ -171,7 +193,7 @@ func (c *fileCache) DeleteAll(flushType string) {
 	}
 }
 
-func (c *fileCache) Delete(key string) (bool) {
+func (c *fileCache) Delete(key string) bool {
 	mu := c.pm.MutexAt(key)
 	mu.RLock()
 	defer mu.RUnlock()
@@ -179,7 +201,7 @@ func (c *fileCache) Delete(key string) (bool) {
 	p := keyPath(c.path, key)
 	if info, err := os.Stat(p); err == nil && info.IsDir() {
 		_ = os.Remove(p)
-		
+
 		return true
 	}
 
@@ -205,25 +227,55 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 		_ = f.Close()
 	}()
 
-	timestamp := uint64(time.Now().Add(expiry).Unix())
+	//timestamp := uint64(time.Now().Add(expiry).Unix())
 
-	var t [8]byte
+	//var t [8]byte
 
-	binary.LittleEndian.PutUint64(t[:], timestamp)
+	/*binary.LittleEndian.PutUint64(t[:], timestamp)
 
 	if _, err = f.Write(t[:]); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
+	}*/
+
+	nowTimestamp := uint64(time.Now().Unix())
+
+	item := &CacheItem{
+		Value:        string(val),
+		Created:      nowTimestamp,
+		Expiry:       uint64(time.Now().Add(expiry).Unix()),
+		LastAccessed: nowTimestamp,
 	}
 
-	item := &cacheItem{
-		value: val,
-		created: time.Now(),
+	jsonData, err := json.Marshal(item)
+	if err != nil {
+		return fmt.Errorf("error json marshal: %w", err)
 	}
 
-	file, _ := json.MarshalIndent(item, "", " ")
-	if _, err = f.Write(file); err != nil {
+	/*timestamp := uint64(time.Now().Add(expiry).Unix())
+
+	var t [8]byte
+
+	binary.LittleEndian.PutUint64(t[:], timestamp)*/
+
+	//log.Println(jsonData)
+	//log.Println(string(jsonData))
+
+	//file, _ := json.MarshalIndent(item, "", " ")
+	//log.Printf(">>>>>>>>>>>>>>>>>>>>> %s", file)
+	if _, err = f.Write(jsonData); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
 	}
+
+	/*log.Println("------------------")
+	log.Println(string(jsonData))
+	jsonData = append(t[:8], jsonData...)
+	log.Println(string(jsonData))
+	log.Println("==================")
+
+	err = ioutil.WriteFile(filepath.Clean(p), jsonData, 0600)
+	if err != nil {
+		return fmt.Errorf("error writing file: %w", err)
+	}*/
 
 	if c.memory {
 		c.items[p] = val
