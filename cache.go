@@ -8,7 +8,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"regexp"
+	// "regexp"
 	"strings"
 	"time"
 
@@ -26,7 +26,7 @@ type Config struct {
 	Headers         []string                                    `json:"headers" yaml:"headers" toml:"headers"`
 	BypassHeaders   []string                                    `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
 	Key             KeyContext                                  `json:"key" yaml:"key" toml:"key"`
-	SurrogateKeys   map[string]SurrogateKeys `json:"surrogateKeys" yaml:"surrogateKeys" toml:"surrogateKeys"`
+	// SurrogateKeys   map[string]SurrogateKeys `json:"surrogateKeys" yaml:"surrogateKeys" toml:"surrogateKeys"`
 }
 
 type KeyContext struct {
@@ -34,7 +34,7 @@ type KeyContext struct {
 	DisableMethod bool `json:"disableMethod" yaml:"disableMethod" toml:"disableMethod"`
 }
 
-type SurrogateKeys struct {
+/*type SurrogateKeys struct {
 	URL     string            `json:"url" yaml:"url"`
 	Headers map[string]string `json:"headers" yaml:"headers"`
 }
@@ -42,7 +42,7 @@ type SurrogateKeys struct {
 type keysRegexpInner struct {
 	Headers map[string]*regexp.Regexp
 	Url     *regexp.Regexp
-}
+}*/
 
 // CreateConfig returns a config instance.
 func CreateConfig() *Config {
@@ -71,8 +71,7 @@ type cache struct {
 	cache      *fileCache
 	cfg        *Config
 	next       http.Handler
-	keysRegexp map[string]keysRegexpInner
-	items      map[string]string
+	// keysRegexp map[string]keysRegexpInner
 }
 
 // New returns a plugin instance.
@@ -90,7 +89,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, err
 	}
 
-	keysRegexp := make(map[string]keysRegexpInner, len(cfg.SurrogateKeys))
+	/*keysRegexp := make(map[string]keysRegexpInner, len(cfg.SurrogateKeys))
 	// baseRegexp := regexp.MustCompile(".+")
 
 	for key, regexps := range cfg.SurrogateKeys {
@@ -111,14 +110,14 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		}
 
 		keysRegexp[key] = innerKey
-	}
+	}*/
 
 	m := &cache{
 		name:       name,
 		cache:      fc,
 		cfg:        cfg,
 		next:       next,
-		keysRegexp: keysRegexp,
+		//keysRegexp: keysRegexp,
 	}
 
 	return m, nil
@@ -244,11 +243,11 @@ func (m *cache) bypassingHeaders(r *http.Request) bool {
 	return false
 }
 
-func (m *cache) matchSurrogateKeys(r *http.Request) []string {
+/*func (m *cache) matchSurrogateKeys(r *http.Request) []string {
 	matchKeys := []string{}
 
 	return matchKeys
-}
+}*/
 
 func (m *cache) cacheKey(r *http.Request) string {
 	key := ""

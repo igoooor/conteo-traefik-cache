@@ -18,8 +18,9 @@ import (
 var errCacheMiss = errors.New("cache miss")
 
 type fileCache struct {
-	path string
-	pm   *pathMutex
+	path  string
+	pm    *pathMutex
+	items map[string][]byte
 }
 
 func newFileCache(path string, vacuum time.Duration) (*fileCache, error) {
@@ -89,6 +90,10 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
+	if val, ok := c.items[p]; ok {
+		return val, nil
+	}
+
 	if info, err := os.Stat(p); err != nil || info.IsDir() {
 		return nil, errCacheMiss
 	}
@@ -185,6 +190,7 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 	if _, err = f.Write(val); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
 	}
+	c.items[p] = val
 
 	return nil
 }
