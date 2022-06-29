@@ -90,10 +90,10 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
-	if val, ok := c.items[p]; ok {
-		fmt.Println(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
+	/*if val, ok := c.items[p]; ok {
+		// fmt.Println(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
 		return val, nil
-	}
+	}*/
 
 	fmt.Println(">>>>>>>>>>>>>>>>>>> file cache hit")
 
