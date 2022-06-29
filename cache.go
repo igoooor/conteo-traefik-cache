@@ -63,6 +63,7 @@ func CreateConfig() *Config {
 
 const (
 	cacheHeader      = "Cache-Status"
+	ageHeader        = "Age"
 	cacheHitStatus   = "hit"
 	cacheMissStatus  = "miss"
 	cacheErrorStatus = "error"
@@ -130,6 +131,8 @@ type cacheData struct {
 	Status  int
 	Headers map[string][]string
 	Body    []byte
+	Created uint64
+	Expiry  uint64
 }
 
 // ServeHTTP serves an HTTP request.
@@ -183,6 +186,8 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Status:  rw.status,
 		Headers: w.Header(),
 		Body:    rw.body,
+		Created: uint64(time.Now().Unix()),
+		Expiry:  uint64(time.Now().Add(expiry).Unix()),
 	}
 
 	b, err = json.Marshal(data)

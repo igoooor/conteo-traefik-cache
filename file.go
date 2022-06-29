@@ -4,7 +4,6 @@ package plugin_simplecache_conteo
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -19,17 +18,17 @@ import (
 var errCacheMiss = errors.New("cache miss")
 
 type fileCache struct {
-	path   string
-	pm     *pathMutex
-	items  map[string]CacheItem
+	path string
+	pm   *pathMutex
+	// items  map[string]CacheItem
+	items  map[string][]byte
 	memory bool
 }
 
 type CacheItem struct {
-	Value        string `json:"v"`
-	Created      uint64 `json:"c"`
-	Expiry       uint64 `json:"e"`
-	LastAccessed uint64 `json:"l"`
+	Value   string `json:"v"`
+	Created uint64 `json:"c"`
+	Expiry  uint64 `json:"e"`
 }
 
 func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, error) {
@@ -45,7 +44,7 @@ func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, e
 	fc := &fileCache{
 		path:   path,
 		pm:     &pathMutex{lock: map[string]*fileLock{}},
-		items:  map[string]CacheItem{},
+		items:  map[string][]byte{},
 		memory: memory,
 	}
 
@@ -81,17 +80,22 @@ func (c *fileCache) vacuumFile(path string, info os.FileInfo, err error) error {
 		return nil
 	}
 
-	expires := time.Unix(int64(data.Expiry), 0)
+	expires := time.Unix(int64(binary.LittleEndian.Uint64(data[:8])), 0)
 	if !expires.Before(time.Now()) {
 		return nil
 	}
+
+	/*expires := time.Unix(int64(data.Expiry), 0)
+	if !expires.Before(time.Now()) {
+		return nil
+	}*/
 
 	_ = os.Remove(path)
 	return nil
 }
 
-func (c *fileCache) readFromMemory(path string) (CacheItem, bool) {
-	var data = CacheItem{}
+func (c *fileCache) readFromMemory(path string) ([]byte, bool) {
+	var data = []byte{}
 	if c.memory {
 		var ok bool
 		data, ok = c.items[path]
@@ -110,7 +114,7 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
-	var data = CacheItem{}
+	var data = []byte{}
 	data, foundInMemory := c.readFromMemory(p)
 
 	if !foundInMemory {
@@ -127,18 +131,24 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 		// log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
 	}
 
-	expires := time.Unix(int64(data.Expiry), 0)
+	expires := time.Unix(int64(binary.LittleEndian.Uint64(data[:8])), 0)
 	if expires.Before(time.Now()) {
 		_ = os.Remove(p)
 		return nil, errCacheMiss
 	}
+
+	/*expires := time.Unix(int64(data.Expiry), 0)
+	if expires.Before(time.Now()) {
+		_ = os.Remove(p)
+		return nil, errCacheMiss
+	}*/
 
 	// store it back into memory
 	if c.memory && !foundInMemory {
 		c.items[p] = data
 	}
 
-	return []byte(data.Value), nil
+	return data[8:], nil
 }
 
 func (c *fileCache) DeleteAll(flushType string) {
@@ -147,7 +157,7 @@ func (c *fileCache) DeleteAll(flushType string) {
 		_ = filepath.Walk(c.path, c.deleteFile)
 	}
 	if c.memory && (flushType == "all" || flushType == "memory") {
-		c.items = map[string]CacheItem{}
+		c.items = map[string][]byte{}
 	}
 }
 
@@ -172,8 +182,8 @@ func (c *fileCache) deleteFile(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func readFile(path string) (CacheItem, error) {
-	data := CacheItem{}
+func readFile(path string) ([]byte, error) {
+	/*var data = []byte{}
 	rawData, err := ioutil.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return data, err
@@ -184,7 +194,19 @@ func readFile(path string) (CacheItem, error) {
 		return data, err
 	}
 
-	return data, nil
+	return data, nil*/
+
+	if info, err := os.Stat(path); err != nil || info.IsDir() {
+		return nil, errCacheMiss
+	}
+
+	b, err := ioutil.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return nil, fmt.Errorf("error reading file %q: %w", path, err)
+	}
+
+	return b, nil
+
 }
 
 func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
@@ -206,13 +228,10 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 		_ = f.Close()
 	}()
 
-	nowTimestamp := uint64(time.Now().Unix())
-
-	item := &CacheItem{
-		Value:        string(val),
-		Created:      nowTimestamp,
-		Expiry:       uint64(time.Now().Add(expiry).Unix()),
-		LastAccessed: nowTimestamp,
+	/*item := &CacheItem{
+		Value:   string(val),
+		Created: uint64(time.Now().Unix()),
+		Expiry:  uint64(time.Now().Add(expiry).Unix()),
 	}
 
 	jsonData, err := json.Marshal(item)
@@ -222,10 +241,24 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 
 	if _, err = f.Write(jsonData); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
+	}*/
+
+	timestamp := uint64(time.Now().Add(expiry).Unix())
+
+	var t [8]byte
+
+	binary.LittleEndian.PutUint64(t[:], timestamp)
+
+	if _, err = f.Write(t[:]); err != nil {
+		return fmt.Errorf("error writing file: %w", err)
+	}
+
+	if _, err = f.Write(val); err != nil {
+		return fmt.Errorf("error writing file: %w", err)
 	}
 
 	if c.memory {
-		c.items[p] = *item
+		c.items[p] = append(t[:], val[:]...)
 	}
 
 	return nil
