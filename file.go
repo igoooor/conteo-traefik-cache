@@ -77,13 +77,17 @@ func (c *fileCache) vacuumFile(path string, info os.FileInfo, err error) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	rawData, err := ioutil.ReadFile(filepath.Clean(path))
+	/*rawData, err := ioutil.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil
 	}
 
 	data := CacheItem{}
 	err = json.Unmarshal([]byte(rawData), &data)
+	if err != nil {
+		return nil
+	}*/
+	data, err := readFile(path)
 	if err != nil {
 		return nil
 	}
@@ -125,7 +129,13 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 			return nil, errCacheMiss
 		}
 
-		rawData, err := ioutil.ReadFile(filepath.Clean(p))
+		var err error
+		data, err = readFile(p)
+		if err != nil {
+			return nil, err
+		}
+
+		/*rawData, err := ioutil.ReadFile(filepath.Clean(p))
 		if err != nil {
 			return nil, fmt.Errorf("error reading file %q: %w", p, err)
 		}
@@ -134,7 +144,7 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 		if err != nil {
 			_ = os.Remove(p)
 			return nil, errCacheMiss
-		}
+		}*/
 		log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
 	}
 
@@ -174,7 +184,12 @@ func (c *fileCache) deleteFile(path string, info os.FileInfo, err error) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	rawData, err := ioutil.ReadFile(filepath.Clean(path))
+	_, err = readFile(path)
+	if err != nil {
+		return nil
+	}
+
+	/*rawData, err := ioutil.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil
 	}
@@ -183,10 +198,25 @@ func (c *fileCache) deleteFile(path string, info os.FileInfo, err error) error {
 	err = json.Unmarshal([]byte(rawData), &data)
 	if err != nil {
 		return nil
-	}
+	}*/
 
 	_ = os.Remove(path)
 	return nil
+}
+
+func readFile(path string) (CacheItem, error) {
+	data := CacheItem{}
+	rawData, err := ioutil.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return data, err
+	}
+
+	err = json.Unmarshal([]byte(rawData), &data)
+	if err != nil {
+		return data, err
+	}
+
+	return data, nil
 }
 
 func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
