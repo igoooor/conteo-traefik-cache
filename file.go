@@ -72,19 +72,21 @@ func (c *fileCache) vacuum(interval time.Duration) {
 			mu.Lock()
 			defer mu.Unlock()
 
-			// Get the expiry.
-			var t [8]byte
-			f, err := os.Open(filepath.Clean(path))
+			rawData, err := ioutil.ReadFile(filepath.Clean(path))
 			if err != nil {
-				// Just skip the file in this case.
-				return nil // nolint:nilerr // skip
-			}
-			if n, err := f.Read(t[:]); err != nil && n != 8 {
+				log.Println("read error")
+				log.Println(err)
 				return nil
 			}
-			_ = f.Close()
+			data := CacheItem{}
+			// var data CacheItem
+			err = json.Unmarshal([]byte(rawData), &data)
+			if err != nil {
+				log.Println(">>> not a valid file to delete: ", filepath.Clean(path))
+				return nil
+			}
 
-			expires := time.Unix(int64(binary.LittleEndian.Uint64(t[:])), 0)
+			expires := time.Unix(int64(data.Expiry), 0)
 			if !expires.Before(time.Now()) {
 				return nil
 			}
