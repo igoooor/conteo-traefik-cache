@@ -18,27 +18,16 @@ import (
 var errCacheMiss = errors.New("cache miss")
 
 type fileCache struct {
-	path string
-	pm   *pathMutex
-	// items  map[string]CacheItem
+	path   string
+	pm     *pathMutex
 	items  map[string][]byte
 	memory bool
 }
 
-type CacheItem struct {
-	Value   string `json:"v"`
-	Created uint64 `json:"c"`
-	Expiry  uint64 `json:"e"`
-}
-
 func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, error) {
-	info, err := os.Stat(path)
+	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("invalid cache path: %w", err)
-	}
-
-	if !info.IsDir() {
-		return nil, errors.New("path must be a directory")
 	}
 
 	fc := &fileCache{
@@ -84,11 +73,6 @@ func (c *fileCache) vacuumFile(path string, info os.FileInfo, err error) error {
 	if !expires.Before(time.Now()) {
 		return nil
 	}
-
-	/*expires := time.Unix(int64(data.Expiry), 0)
-	if !expires.Before(time.Now()) {
-		return nil
-	}*/
 
 	_ = os.Remove(path)
 	return nil
@@ -137,12 +121,6 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 		return nil, errCacheMiss
 	}
 
-	/*expires := time.Unix(int64(data.Expiry), 0)
-	if expires.Before(time.Now()) {
-		_ = os.Remove(p)
-		return nil, errCacheMiss
-	}*/
-
 	// store it back into memory
 	if c.memory && !foundInMemory {
 		c.items[p] = data
@@ -183,19 +161,6 @@ func (c *fileCache) deleteFile(path string, info os.FileInfo, err error) error {
 }
 
 func readFile(path string) ([]byte, error) {
-	/*var data = []byte{}
-	rawData, err := ioutil.ReadFile(filepath.Clean(path))
-	if err != nil {
-		return data, err
-	}
-
-	err = json.Unmarshal([]byte(rawData), &data)
-	if err != nil {
-		return data, err
-	}
-
-	return data, nil*/
-
 	if info, err := os.Stat(path); err != nil || info.IsDir() {
 		return nil, errCacheMiss
 	}
@@ -227,21 +192,6 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 	defer func() {
 		_ = f.Close()
 	}()
-
-	/*item := &CacheItem{
-		Value:   string(val),
-		Created: uint64(time.Now().Unix()),
-		Expiry:  uint64(time.Now().Add(expiry).Unix()),
-	}
-
-	jsonData, err := json.Marshal(item)
-	if err != nil {
-		return fmt.Errorf("error json marshal: %w", err)
-	}
-
-	if _, err = f.Write(jsonData); err != nil {
-		return fmt.Errorf("error writing file: %w", err)
-	}*/
 
 	timestamp := uint64(time.Now().Add(expiry).Unix())
 
