@@ -69,11 +69,14 @@ func (c *fileCache) vacuum(interval time.Duration) {
 			case info.IsDir():
 				return nil
 			}
-			log.Println(">>> vaccum: Lock: ", filepath.Clean(path))
+			log.Println(">>> vaccum: After Switch: ", filepath.Clean(path))
 
 			mu := c.pm.MutexAt(filepath.Base(path))
+			log.Println(">>> vaccum: After Mutex: ", filepath.Clean(path))
 			mu.Lock()
+			log.Println(">>> vaccum: After Lock: ", filepath.Clean(path))
 			defer mu.Unlock()
+			log.Println(">>> vaccum: After Lock: ", filepath.Clean(path))
 
 			rawData, err := ioutil.ReadFile(filepath.Clean(path))
 			if err != nil {
@@ -92,6 +95,7 @@ func (c *fileCache) vacuum(interval time.Duration) {
 
 			expires := time.Unix(int64(data.Expiry), 0)
 			if !expires.Before(time.Now()) {
+				log.Println(">>> vaccum: NOT expired: ", filepath.Clean(path))
 				return nil
 			}
 			log.Println(">>> vaccum: expired: ", filepath.Clean(path))
@@ -211,21 +215,6 @@ func (c *fileCache) DeleteAll(flushType string) {
 	if c.memory && (flushType == "all" || flushType == "memory") {
 		c.items = map[string]CacheItem{}
 	}
-}
-
-func (c *fileCache) Delete(key string) bool {
-	mu := c.pm.MutexAt(key)
-	mu.RLock()
-	defer mu.RUnlock()
-
-	p := keyPath(c.path, key)
-	if info, err := os.Stat(p); err == nil && info.IsDir() {
-		_ = os.Remove(p)
-
-		return true
-	}
-
-	return false
 }
 
 func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
