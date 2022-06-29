@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+
 	// "regexp"
 	"strings"
 	"time"
@@ -52,7 +53,7 @@ func CreateConfig() *Config {
 		Cleanup:         int((5 * time.Minute).Seconds()),
 		Memory:          false,
 		AddStatusHeader: true,
-		FlushHeader:      "X-Cache-Flush",
+		FlushHeader:     "X-Cache-Flush",
 		NextGenFormats:  []string{},
 		Headers:         []string{},
 		BypassHeaders:   []string{},
@@ -69,10 +70,10 @@ const (
 )
 
 type cache struct {
-	name       string
-	cache      *fileCache
-	cfg        *Config
-	next       http.Handler
+	name  string
+	cache *fileCache
+	cfg   *Config
+	next  http.Handler
 	// keysRegexp map[string]keysRegexpInner
 }
 
@@ -115,10 +116,10 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 	}*/
 
 	m := &cache{
-		name:       name,
-		cache:      fc,
-		cfg:        cfg,
-		next:       next,
+		name:  name,
+		cache: fc,
+		cfg:   cfg,
+		next:  next,
 		//keysRegexp: keysRegexp,
 	}
 
@@ -146,7 +147,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m.bypassingHeaders(r) {
 		rw := &responseWriter{ResponseWriter: w}
 		m.next.ServeHTTP(rw, r)
-		
+
 		return
 	}
 
@@ -167,6 +168,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(cacheHeader, cs)
 	}
 
+	log.Println("--------- cache miss:", key)
 	rw := &responseWriter{ResponseWriter: w}
 	m.next.ServeHTTP(rw, r)
 
@@ -213,7 +215,7 @@ func (m *cache) flushAllCache(r *http.Request, w http.ResponseWriter) {
 	if flushType := r.Header.Get(m.cfg.FlushHeader); flushType != "" {
 		m.cache.DeleteAll(flushType)
 	}
-	
+
 	w.WriteHeader(204)
 	_, _ = w.Write([]byte{})
 }
@@ -224,7 +226,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
 			w.Header().Add(key, val)
 		}
 	}
-	
+
 	if m.cfg.AddStatusHeader {
 		w.Header().Set(cacheHeader, cacheHitStatus)
 	}
@@ -264,25 +266,25 @@ func (m *cache) cacheKey(r *http.Request) string {
 	}
 
 	key += "-" + r.URL.Path
-	
+
 	headers := ""
-	
+
 	for _, header := range m.cfg.Headers {
 		if r.Header.Get(header) != "" {
 			headers += strings.ReplaceAll(r.Header.Get(header), " ", "")
 		}
 	}
-	
+
 	if headers != "" {
 		headers = base64.StdEncoding.EncodeToString([]byte(headers))
 		key += "-" + headers
 	}
-	
+
 	if r.Header.Get(acceptHeader) != "" {
 		accept := r.Header.Get(acceptHeader)
 		acceptedFormats := strings.Split(accept, ",")
-		
-		out:
+
+	out:
 		for _, format := range m.cfg.NextGenFormats {
 			for _, acceptedFormat := range acceptedFormats {
 				if format == strings.ToLower(acceptedFormat) {

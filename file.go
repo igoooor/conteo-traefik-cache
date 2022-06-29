@@ -22,7 +22,7 @@ var errCacheMiss = errors.New("cache miss")
 type fileCache struct {
 	path   string
 	pm     *pathMutex
-	items  map[string][]byte
+	items  map[string]CacheItem
 	memory bool
 }
 
@@ -46,7 +46,7 @@ func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, e
 	fc := &fileCache{
 		path:   path,
 		pm:     &pathMutex{lock: map[string]*fileLock{}},
-		items:  map[string][]byte{},
+		items:  map[string]CacheItem{},
 		memory: memory,
 	}
 
@@ -98,66 +98,67 @@ func (c *fileCache) vacuum(interval time.Duration) {
 	}
 }
 
+func (c *fileCache) readFromMemory(path string) (CacheItem, bool) {
+	var data = CacheItem{}
+	if c.memory {
+		var ok bool
+		data, ok = c.items[path]
+		if ok {
+			log.Printf(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
+			return data, true
+		}
+	}
+
+	return data, false
+}
+
 func (c *fileCache) Get(key string) ([]byte, error) {
 	mu := c.pm.MutexAt(key)
 	mu.RLock()
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
-	if c.memory {
-		if val, ok := c.items[p]; ok {
+	//foundInMemory := false
+	var data = CacheItem{}
+	data, foundInMemory := c.readFromMemory(key)
+	/*if c.memory {
+		var ok bool
+		data, ok = c.items[p]
+		if ok {
+			foundInMemory = true;
 			log.Printf(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
-			return val, nil
+			//return []byte(data.Value), nil
+		}
+	}*/
+
+	if !foundInMemory {
+		log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
+
+		if info, err := os.Stat(p); err != nil || info.IsDir() {
+			return nil, errCacheMiss
+		}
+
+		rawData, err := ioutil.ReadFile(filepath.Clean(p))
+		if err != nil {
+			return nil, fmt.Errorf("error reading file %q: %w", p, err)
+		}
+
+		err = json.Unmarshal([]byte(rawData), &data)
+		if err != nil {
+			_ = os.Remove(p)
+			return nil, errCacheMiss
 		}
 	}
 
-	log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
-
-	if info, err := os.Stat(p); err != nil || info.IsDir() {
-		return nil, errCacheMiss
-	}
-
-	rawData, err := ioutil.ReadFile(filepath.Clean(p))
-	if err != nil {
-		return nil, fmt.Errorf("error reading file %q: %w", p, err)
-	}
-	data := CacheItem{}
-	// var data CacheItem
-	err = json.Unmarshal([]byte(rawData), &data)
-	if err != nil {
-		_ = os.Remove(p)
-		return nil, errCacheMiss
-	}
-
-	//log.Println("xxxxx")
-	//log.Printf("Struct: %#v\n", data)
-	//log.Println(data.Value)
-	//log.Println(data.Expiry)
-	//log.Println(time.Unix(int64(data.Expiry), 0))
-
-	//log.Println("yyyyy")
-
-	//b := []byte(data.Value)
-	//log.Println(">>>")
-	//log.Println(data.Value)
-	//log.Printf("@@")
-	//log.Println(rawData)
-	//log.Printf("--")
-	//return nil, nil
 	expires := time.Unix(int64(data.Expiry), 0)
 	if expires.Before(time.Now()) {
 		_ = os.Remove(p)
 		return nil, errCacheMiss
 	}
-	/*expires := time.Unix(int64(binary.LittleEndian.Uint64(b[:8])), 0)
-	if expires.Before(time.Now()) {
-		_ = os.Remove(p)
-		return nil, errCacheMiss
-	}*/
 
 	// store it back into memory
-	if c.memory {
-		c.items[p] = []byte(data.Value)
+	if c.memory && !foundInMemory {
+		c.items[p] = data
 	}
 
 	return []byte(data.Value), nil
@@ -209,7 +210,7 @@ func (c *fileCache) DeleteAll(flushType string) {
 		})
 	}
 	if c.memory && (flushType == "all" || flushType == "memory") {
-		c.items = map[string][]byte{}
+		c.items = map[string]CacheItem{}
 	}
 }
 
@@ -298,7 +299,7 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 	}*/
 
 	if c.memory {
-		c.items[p] = val
+		c.items[p] = *item
 	}
 
 	return nil
