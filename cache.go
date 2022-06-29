@@ -210,8 +210,8 @@ func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (t
 }
 
 func (m *cache) flushAllCache(r *http.Request, w http.ResponseWriter) {
-	if r.Header.Get(m.cfg.FlushHeader) != "" {
-		m.cache.DeleteAll()
+	if flushType := r.Header.Get(m.cfg.FlushHeader); flushType != "" {
+		m.cache.DeleteAll(flushType)
 	}
 	
 	w.WriteHeader(204)

@@ -117,35 +117,40 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	return b[8:], nil
 }
 
-func (c *fileCache) DeleteAll() {
-	_ = filepath.Walk(c.path, func(path string, info os.FileInfo, err error) error {
-		switch {
-			case err != nil:
-				return err
-			case info.IsDir():
+func (c *fileCache) DeleteAll(flushType string) {
+	if flushType == "all" || flushType == "file" {
+		_ = filepath.Walk(c.path, func(path string, info os.FileInfo, err error) error {
+			switch {
+				case err != nil:
+					return err
+				case info.IsDir():
+					return nil
+			}
+
+			mu := c.pm.MutexAt(filepath.Base(path))
+			mu.Lock()
+			defer mu.Unlock()
+
+			// Get the expiry.
+			var t [8]byte
+			f, err := os.Open(filepath.Clean(path))
+			if err != nil {
+				// Just skip the file in this case.
+				return nil // nolint:nilerr // skip
+			}
+			if n, err := f.Read(t[:]); err != nil && n != 8 {
 				return nil
-		}
+			}
+			_ = f.Close()
 
-		mu := c.pm.MutexAt(filepath.Base(path))
-		mu.Lock()
-		defer mu.Unlock()
-
-		// Get the expiry.
-		var t [8]byte
-		f, err := os.Open(filepath.Clean(path))
-		if err != nil {
-			// Just skip the file in this case.
-			return nil // nolint:nilerr // skip
-		}
-		if n, err := f.Read(t[:]); err != nil && n != 8 {
+			// Delete the file.
+			_ = os.Remove(path)
 			return nil
-		}
-		_ = f.Close()
-
-		// Delete the file.
-		_ = os.Remove(path)
-		return nil
-	})
+		})
+	}
+	if flushType == "all" || flushType == "memory" {
+		c.items = map[string][]byte{}
+	}
 }
 
 func (c *fileCache) Delete(key string) (bool) {
