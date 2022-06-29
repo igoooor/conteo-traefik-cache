@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,7 +59,7 @@ func (c *fileCache) vacuum(interval time.Duration) {
 	defer timer.Stop()
 
 	for range timer.C {
-		log.Println(">>> vaccum file cache")
+		// log.Println(">>> vaccum file cache")
 		_ = filepath.Walk(c.path, c.vacuumFile)
 	}
 }
@@ -77,16 +76,6 @@ func (c *fileCache) vacuumFile(path string, info os.FileInfo, err error) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	/*rawData, err := ioutil.ReadFile(filepath.Clean(path))
-	if err != nil {
-		return nil
-	}
-
-	data := CacheItem{}
-	err = json.Unmarshal([]byte(rawData), &data)
-	if err != nil {
-		return nil
-	}*/
 	data, err := readFile(path)
 	if err != nil {
 		return nil
@@ -107,7 +96,7 @@ func (c *fileCache) readFromMemory(path string) (CacheItem, bool) {
 		var ok bool
 		data, ok = c.items[path]
 		if ok {
-			log.Printf(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
+			// log.Printf(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
 			return data, true
 		}
 	}
@@ -135,17 +124,7 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 			return nil, err
 		}
 
-		/*rawData, err := ioutil.ReadFile(filepath.Clean(p))
-		if err != nil {
-			return nil, fmt.Errorf("error reading file %q: %w", p, err)
-		}
-
-		err = json.Unmarshal([]byte(rawData), &data)
-		if err != nil {
-			_ = os.Remove(p)
-			return nil, errCacheMiss
-		}*/
-		log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
+		// log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
 	}
 
 	expires := time.Unix(int64(data.Expiry), 0)
@@ -164,7 +143,7 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 
 func (c *fileCache) DeleteAll(flushType string) {
 	if flushType == "all" || flushType == "file" {
-		log.Println(">>> delete file cache")
+		// log.Println(">>> delete file cache")
 		_ = filepath.Walk(c.path, c.deleteFile)
 	}
 	if c.memory && (flushType == "all" || flushType == "memory") {
@@ -188,17 +167,6 @@ func (c *fileCache) deleteFile(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return nil
 	}
-
-	/*rawData, err := ioutil.ReadFile(filepath.Clean(path))
-	if err != nil {
-		return nil
-	}
-
-	data := CacheItem{}
-	err = json.Unmarshal([]byte(rawData), &data)
-	if err != nil {
-		return nil
-	}*/
 
 	_ = os.Remove(path)
 	return nil
@@ -237,16 +205,6 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 	defer func() {
 		_ = f.Close()
 	}()
-
-	//timestamp := uint64(time.Now().Add(expiry).Unix())
-
-	//var t [8]byte
-
-	/*binary.LittleEndian.PutUint64(t[:], timestamp)
-
-	if _, err = f.Write(t[:]); err != nil {
-		return fmt.Errorf("error writing file: %w", err)
-	}*/
 
 	nowTimestamp := uint64(time.Now().Unix())
 
@@ -308,7 +266,7 @@ func (m *pathMutex) MutexAt(path string) *fileLock {
 
 	if fl, ok := m.lock[path]; ok {
 		fl.ref++
-		log.Println(">>> Lock exists, fl.ref: ", fl.ref)
+		// log.Println(">>> Lock exists, fl.ref: ", fl.ref)
 		return fl
 	}
 
@@ -318,16 +276,16 @@ func (m *pathMutex) MutexAt(path string) *fileLock {
 		defer m.mu.Unlock()
 
 		fl.ref--
-		log.Println(">>> Lock cleanup, path: ", path)
-		log.Println(">>> Lock cleanup, fl.ref: ", fl.ref)
+		// log.Println(">>> Lock cleanup, path: ", path)
+		// log.Println(">>> Lock cleanup, fl.ref: ", fl.ref)
 		if fl.ref == 0 {
-			log.Println(">>> ref = 0, delete lock: ", path)
+			// log.Println(">>> ref = 0, delete lock: ", path)
 			delete(m.lock, path)
 		}
 	}
 	m.lock[path] = fl
-	log.Println(">>> Lock: ", path)
-	log.Println(">>> fl.ref: ", fl.ref)
+	// log.Println(">>> Lock: ", path)
+	// log.Println(">>> fl.ref: ", fl.ref)
 
 	return fl
 }
