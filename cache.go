@@ -17,15 +17,16 @@ import (
 
 // Config configures the middleware.
 type Config struct {
-	Path            string                                      `json:"path" yaml:"path" toml:"path"`
-	MaxExpiry       int                                         `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
-	Cleanup         int                                         `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
-	AddStatusHeader bool                                        `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
-	FlushHeader     string                                      `json:"flushHeader" yaml:"flushHeader" toml:"flushHeader"`
-	NextGenFormats  []string                                    `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
-	Headers         []string                                    `json:"headers" yaml:"headers" toml:"headers"`
-	BypassHeaders   []string                                    `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
-	Key             KeyContext                                  `json:"key" yaml:"key" toml:"key"`
+	Path            string     `json:"path" yaml:"path" toml:"path"`
+	MaxExpiry       int        `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
+	Cleanup         int        `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
+	Memory          bool       `json:"memory" yaml:"memory" toml:"memory"`
+	AddStatusHeader bool       `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
+	FlushHeader     string     `json:"flushHeader" yaml:"flushHeader" toml:"flushHeader"`
+	NextGenFormats  []string   `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
+	Headers         []string   `json:"headers" yaml:"headers" toml:"headers"`
+	BypassHeaders   []string   `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
+	Key             KeyContext `json:"key" yaml:"key" toml:"key"`
 	// SurrogateKeys   map[string]SurrogateKeys `json:"surrogateKeys" yaml:"surrogateKeys" toml:"surrogateKeys"`
 }
 
@@ -49,6 +50,7 @@ func CreateConfig() *Config {
 	return &Config{
 		MaxExpiry:       int((5 * time.Minute).Seconds()),
 		Cleanup:         int((5 * time.Minute).Seconds()),
+		Memory:          false,
 		AddStatusHeader: true,
 		FlushHeader:      "X-Cache-Flush",
 		NextGenFormats:  []string{},
@@ -84,7 +86,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, errors.New("cleanup must be greater or equal to 1")
 	}
 
-	fc, err := newFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second)
+	fc, err := newFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +134,6 @@ type cacheData struct {
 // ServeHTTP serves an HTTP request.
 func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key := m.cacheKey(r)
-
-	log.Printf("Key: %s", key)
 
 	if r.Method == "DELETE" {
 		m.flushAllCache(r, w)

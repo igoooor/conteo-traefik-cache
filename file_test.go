@@ -15,7 +15,7 @@ const testCacheKey = "GETlocalhost:8080/test/path"
 func TestFileCache(t *testing.T) {
 	dir := createTempDir(t)
 
-	fc, err := newFileCache(dir, time.Second)
+	fc, err := newFileCache(dir, time.Second, false)
 	if err != nil {
 		t.Errorf("unexpected newFileCache error: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestFileCache_ConcurrentAccess(t *testing.T) {
 
 	dir := createTempDir(t)
 
-	fc, err := newFileCache(dir, time.Second)
+	fc, err := newFileCache(dir, time.Second, false)
 	if err != nil {
 		t.Errorf("unexpected newFileCache error: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestPathMutex(t *testing.T) {
 func BenchmarkFileCache_Get(b *testing.B) {
 	dir := createTempDir(b)
 
-	fc, err := newFileCache(dir, time.Minute)
+	fc, err := newFileCache(dir, time.Minute, false)
 	if err != nil {
 		b.Errorf("unexpected newFileCache error: %v", err)
 	}

@@ -4,6 +4,7 @@ package plugin_simplecache_conteo
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -19,12 +20,19 @@ import (
 var errCacheMiss = errors.New("cache miss")
 
 type fileCache struct {
-	path  string
-	pm    *pathMutex
-	items map[string][]byte
+	path   string
+	pm     *pathMutex
+	items  map[string][]byte
+	memory bool
 }
 
-func newFileCache(path string, vacuum time.Duration) (*fileCache, error) {
+type cacheItem struct {
+	value        []byte
+	created      time.Time
+	lastAccessed time.Time
+}
+
+func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("invalid cache path: %w", err)
@@ -38,6 +46,7 @@ func newFileCache(path string, vacuum time.Duration) (*fileCache, error) {
 		path:  path,
 		pm:    &pathMutex{lock: map[string]*fileLock{}},
 		items: map[string][]byte{},
+		memory: memory,
 	}
 
 	go fc.vacuum(vacuum)
@@ -92,9 +101,11 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
-	if val, ok := c.items[p]; ok {
-		log.Printf(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
-		return val, nil
+	if c.memory {
+		if val, ok := c.items[p]; ok {
+			log.Printf(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
+			return val, nil
+		}
 	}
 
 	log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
@@ -103,21 +114,25 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 		return nil, errCacheMiss
 	}
 
-	b, err := ioutil.ReadFile(filepath.Clean(p))
+	rawData, err := ioutil.ReadFile(filepath.Clean(p))
 	if err != nil {
 		return nil, fmt.Errorf("error reading file %q: %w", p, err)
 	}
+	data := cacheItem{}
+	_ = json.Unmarshal([]byte(rawData), &data)
 
-	expires := time.Unix(int64(binary.LittleEndian.Uint64(b[:8])), 0)
+	expires := time.Unix(int64(binary.LittleEndian.Uint64(data.value[:8])), 0)
 	if expires.Before(time.Now()) {
 		_ = os.Remove(p)
 		return nil, errCacheMiss
 	}
 
 	// store it back into memory
-	c.items[p] = b[8:]
+	if c.memory {
+		c.items[p] = data.value[8:]
+	}
 
-	return b[8:], nil
+	return data.value[8:], nil
 }
 
 func (c *fileCache) DeleteAll(flushType string) {
@@ -151,7 +166,7 @@ func (c *fileCache) DeleteAll(flushType string) {
 			return nil
 		})
 	}
-	if flushType == "all" || flushType == "memory" {
+	if c.memory && (flushType == "all" || flushType == "memory") {
 		c.items = map[string][]byte{}
 	}
 }
@@ -200,10 +215,19 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 		return fmt.Errorf("error writing file: %w", err)
 	}
 
-	if _, err = f.Write(val); err != nil {
+	item := &cacheItem{
+		value: val,
+		created: time.Now(),
+	}
+
+	file, _ := json.MarshalIndent(item, "", " ")
+	if _, err = f.Write(file); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
 	}
-	c.items[p] = val
+
+	if c.memory {
+		c.items[p] = val
+	}
 
 	return nil
 }
