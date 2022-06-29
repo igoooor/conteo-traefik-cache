@@ -114,6 +114,9 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 		return nil, errCacheMiss
 	}
 
+	// store it back into memory
+	c.items[p] = b[8:]
+
 	return b[8:], nil
 }
 
