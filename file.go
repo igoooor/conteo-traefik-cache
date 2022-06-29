@@ -100,7 +100,6 @@ func (c *fileCache) vacuum(interval time.Duration) {
 
 func (c *fileCache) readFromMemory(path string) (CacheItem, bool) {
 	var data = CacheItem{}
-	log.Printf(">>>>>>>>>>>>>>>>>>> c.memory: %v", c.memory)
 	if c.memory {
 		var ok bool
 		data, ok = c.items[path]
@@ -119,18 +118,8 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	defer mu.RUnlock()
 
 	p := keyPath(c.path, key)
-	//foundInMemory := false
 	var data = CacheItem{}
 	data, foundInMemory := c.readFromMemory(p)
-	/*if c.memory {
-		var ok bool
-		data, ok = c.items[p]
-		if ok {
-			foundInMemory = true;
-			log.Printf(">>>>>>>>>>>>>>>>>>> in-memory cache hit")
-			//return []byte(data.Value), nil
-		}
-	}*/
 
 	if !foundInMemory {
 		if info, err := os.Stat(p); err != nil || info.IsDir() {
@@ -166,13 +155,17 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 
 func (c *fileCache) DeleteAll(flushType string) {
 	if flushType == "all" || flushType == "file" {
+		log.Println(">>> delete file cache")
 		_ = filepath.Walk(c.path, func(path string, info os.FileInfo, err error) error {
+			log.Println(">>> loop: ", filepath.Clean(path))
 			switch {
 			case err != nil:
 				return err
 			case info.IsDir():
 				return nil
 			}
+
+			log.Println(">>> Lock: ", filepath.Clean(path))
 
 			mu := c.pm.MutexAt(filepath.Base(path))
 			mu.Lock()
@@ -184,6 +177,7 @@ func (c *fileCache) DeleteAll(flushType string) {
 				log.Println(err)
 				return nil
 			}
+			log.Println(">>> read: ", filepath.Clean(path))
 			data := CacheItem{}
 			// var data CacheItem
 			err = json.Unmarshal([]byte(rawData), &data)
