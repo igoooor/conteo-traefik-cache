@@ -6,8 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	// "regexp"
 	"strings"
@@ -64,7 +66,7 @@ func CreateConfig() *Config {
 const (
 	cacheHeader      = "Cache-Status"
 	ageHeader        = "Age"
-	cacheHitStatus   = "hit"
+	cacheHitStatus   = "hit, ttl=%d"
 	cacheMissStatus  = "miss"
 	cacheErrorStatus = "error"
 	acceptHeader     = "Accept"
@@ -232,7 +234,11 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
 	}
 
 	if m.cfg.AddStatusHeader {
-		w.Header().Set(cacheHeader, cacheHitStatus)
+		now := uint64(time.Now().Unix())
+		age := now - data.Created
+		ttl := data.Expiry - now
+		w.Header().Set(cacheHeader, fmt.Sprintf(cacheHitStatus, ttl))
+		w.Header().Set(ageHeader, strconv.FormatUint(age, 10))
 	}
 
 	w.WriteHeader(data.Status)
