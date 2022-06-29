@@ -55,55 +55,57 @@ func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, e
 	return fc, nil
 }
 
+func (c *fileCache) vacuumFile(path string, info os.FileInfo, err error) error {
+	log.Println(">>> vaccum: loop: ", filepath.Clean(path))
+	switch {
+	case err != nil:
+		return err
+	case info.IsDir():
+		return nil
+	}
+	log.Println(">>> vaccum: After Switch: ", filepath.Clean(path))
+
+	mu := c.pm.MutexAt(filepath.Base(path))
+	log.Println(">>> vaccum: After Mutex: ", filepath.Clean(path))
+	mu.Lock()
+	log.Println(">>> vaccum: After Lock: ", filepath.Clean(path))
+	defer mu.Unlock()
+	log.Println(">>> vaccum: After UnLock: ", filepath.Clean(path))
+
+	rawData, err := ioutil.ReadFile(filepath.Clean(path))
+	if err != nil {
+		log.Println("read error")
+		log.Println(err)
+		return nil
+	}
+	data := CacheItem{}
+	// var data CacheItem
+	err = json.Unmarshal([]byte(rawData), &data)
+	if err != nil {
+		log.Println(">>> vaccum: not a valid file to delete: ", filepath.Clean(path))
+		return nil
+	}
+	log.Println(">>> vaccum: read: ", filepath.Clean(path))
+
+	expires := time.Unix(int64(data.Expiry), 0)
+	if !expires.Before(time.Now()) {
+		log.Println(">>> vaccum: NOT expired: ", filepath.Clean(path))
+		return nil
+	}
+	log.Println(">>> vaccum: expired: ", filepath.Clean(path))
+
+	// Delete the file.
+	_ = os.Remove(path)
+	return nil
+}
+
 func (c *fileCache) vacuum(interval time.Duration) {
 	timer := time.NewTicker(interval)
 	defer timer.Stop()
 
 	for range timer.C {
 		log.Println(">>> vaccum file cache")
-		_ = filepath.Walk(c.path, func(path string, info os.FileInfo, err error) error {
-			log.Println(">>> vaccum: loop: ", filepath.Clean(path))
-			switch {
-			case err != nil:
-				return err
-			case info.IsDir():
-				return nil
-			}
-			log.Println(">>> vaccum: After Switch: ", filepath.Clean(path))
-
-			mu := c.pm.MutexAt(filepath.Base(path))
-			log.Println(">>> vaccum: After Mutex: ", filepath.Clean(path))
-			mu.Lock()
-			log.Println(">>> vaccum: After Lock: ", filepath.Clean(path))
-			defer mu.Unlock()
-			log.Println(">>> vaccum: After UnLock: ", filepath.Clean(path))
-
-			rawData, err := ioutil.ReadFile(filepath.Clean(path))
-			if err != nil {
-				log.Println("read error")
-				log.Println(err)
-				return nil
-			}
-			data := CacheItem{}
-			// var data CacheItem
-			err = json.Unmarshal([]byte(rawData), &data)
-			if err != nil {
-				log.Println(">>> vaccum: not a valid file to delete: ", filepath.Clean(path))
-				return nil
-			}
-			log.Println(">>> vaccum: read: ", filepath.Clean(path))
-
-			expires := time.Unix(int64(data.Expiry), 0)
-			if !expires.Before(time.Now()) {
-				log.Println(">>> vaccum: NOT expired: ", filepath.Clean(path))
-				return nil
-			}
-			log.Println(">>> vaccum: expired: ", filepath.Clean(path))
-
-			// Delete the file.
-			_ = os.Remove(path)
-			return nil
-		})
+		_ = filepath.Walk(c.path, c.vacuumFile)
 	}
 }
 
