@@ -193,7 +193,7 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 	if _, err = f.Write(val); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
 	}
-	c.items[p] = val
+	// c.items[p] = val
 
 	return nil
 }
