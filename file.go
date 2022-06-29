@@ -76,7 +76,7 @@ func (c *fileCache) vacuum(interval time.Duration) {
 			mu.Lock()
 			log.Println(">>> vaccum: After Lock: ", filepath.Clean(path))
 			defer mu.Unlock()
-			log.Println(">>> vaccum: After Lock: ", filepath.Clean(path))
+			log.Println(">>> vaccum: After UnLock: ", filepath.Clean(path))
 
 			rawData, err := ioutil.ReadFile(filepath.Clean(path))
 			if err != nil {
@@ -327,6 +327,7 @@ func (m *pathMutex) MutexAt(path string) *fileLock {
 	defer m.mu.Unlock()
 
 	if fl, ok := m.lock[path]; ok {
+		log.Println(">>> Lock exists, fl.ref: ", fl.ref)
 		fl.ref++
 		return fl
 	}
@@ -342,6 +343,8 @@ func (m *pathMutex) MutexAt(path string) *fileLock {
 		}
 	}
 	m.lock[path] = fl
+	log.Println(">>> Lock: ", path)
+	log.Println(">>> fl.ref: ", fl.ref)
 
 	return fl
 }
