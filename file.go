@@ -34,8 +34,9 @@ func newFileCache(path string, vacuum time.Duration) (*fileCache, error) {
 	}
 
 	fc := &fileCache{
-		path: path,
-		pm:   &pathMutex{lock: map[string]*fileLock{}},
+		path:  path,
+		pm:    &pathMutex{lock: map[string]*fileLock{}},
+		items: map[string][]byte{},
 	}
 
 	go fc.vacuum(vacuum)
@@ -193,7 +194,7 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 	if _, err = f.Write(val); err != nil {
 		return fmt.Errorf("error writing file: %w", err)
 	}
-	// c.items[p] = val
+	c.items[p] = val
 
 	return nil
 }
