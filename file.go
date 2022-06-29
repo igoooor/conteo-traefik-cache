@@ -327,8 +327,8 @@ func (m *pathMutex) MutexAt(path string) *fileLock {
 	defer m.mu.Unlock()
 
 	if fl, ok := m.lock[path]; ok {
-		log.Println(">>> Lock exists, fl.ref: ", fl.ref)
 		fl.ref++
+		log.Println(">>> Lock exists, fl.ref: ", fl.ref)
 		return fl
 	}
 
