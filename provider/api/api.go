@@ -2,6 +2,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -27,8 +28,12 @@ func NewFileCache(path string) (*FileCache, error) {
 	return fc, nil
 }
 
+func encodeKey(key string) string {
+	return base64.URLEncoding.EncodeToString([]byte(key))
+}
+
 func (c *FileCache) Get(key string) ([]byte, error) {
-	response, err := http.Get(c.path + key)
+	response, err := http.Get(c.path + encodeKey(key))
 
 	if err != nil {
 		return nil, err
@@ -63,7 +68,7 @@ func (c *FileCache) Delete(key string) {
 }
 
 func (c *FileCache) Set(key string, val []byte, expiry time.Duration) error {
-	req, err := http.NewRequest(http.MethodPut, c.path+key, strings.NewReader(string(val)))
+	req, err := http.NewRequest(http.MethodPut, c.path+encodeKey(key), strings.NewReader(string(val)))
 	if err != nil {
 		return err
 	}
