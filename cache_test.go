@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -16,32 +17,32 @@ func TestNew(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "should error if path is not valid",
-			cfg:     &Config{Path: "/foo/bar", MaxExpiry: 300, Cleanup: 600, Key: KeyContext{
+			name: "should error if path is not valid",
+			cfg: &Config{Path: "/foo/bar", MaxExpiry: 300, Cleanup: 600, Key: KeyContext{
 				DisableHost:   false,
 				DisableMethod: false,
 			}},
 			wantErr: true,
 		},
 		{
-			name:    "should error if maxExpiry <= 1",
-			cfg:     &Config{Path: os.TempDir(), MaxExpiry: 1, Cleanup: 600, Key: KeyContext{
+			name: "should error if maxExpiry <= 1",
+			cfg: &Config{Path: os.TempDir(), MaxExpiry: 1, Cleanup: 600, Key: KeyContext{
 				DisableHost:   false,
 				DisableMethod: false,
 			}},
 			wantErr: true,
 		},
 		{
-			name:    "should error if cleanup <= 1",
-			cfg:     &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 1, Key: KeyContext{
+			name: "should error if cleanup <= 1",
+			cfg: &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 1, Key: KeyContext{
 				DisableHost:   false,
 				DisableMethod: false,
 			}},
 			wantErr: true,
 		},
 		{
-			name:    "should be valid",
-			cfg:     &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 600, Key: KeyContext{
+			name: "should be valid",
+			cfg: &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 600, Key: KeyContext{
 				DisableHost:   false,
 				DisableMethod: false,
 			}},
@@ -91,7 +92,7 @@ func TestCache_ServeHTTP(t *testing.T) {
 
 	c.ServeHTTP(rw, req)
 
-	if state := rw.Header().Get("Cache-Status"); state != "hit" {
+	if state := rw.Header().Get("Cache-Status"); !strings.HasPrefix(state, "hit") {
 		t.Errorf("unexprect cache state: want \"hit\", got: %q", state)
 	}
 }

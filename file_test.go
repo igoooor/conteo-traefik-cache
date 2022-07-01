@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	provider "github.com/igoooor/plugin-simplecache-conteo/provider/local"
 )
 
 const testCacheKey = "GETlocalhost:8080/test/path"
@@ -15,9 +17,9 @@ const testCacheKey = "GETlocalhost:8080/test/path"
 func TestFileCache(t *testing.T) {
 	dir := createTempDir(t)
 
-	fc, err := newFileCache(dir, time.Second, false)
+	fc, err := provider.NewFileCache(dir, time.Second, false)
 	if err != nil {
-		t.Errorf("unexpected newFileCache error: %v", err)
+		t.Errorf("unexpected NewFileCache error: %v", err)
 	}
 
 	_, err = fc.Get(testCacheKey)
@@ -54,9 +56,9 @@ func TestFileCache_ConcurrentAccess(t *testing.T) {
 
 	dir := createTempDir(t)
 
-	fc, err := newFileCache(dir, time.Second, false)
+	fc, err := provider.NewFileCache(dir, time.Second, false)
 	if err != nil {
-		t.Errorf("unexpected newFileCache error: %v", err)
+		t.Errorf("unexpected NewFileCache error: %v", err)
 	}
 
 	cacheContent := []byte("some random cache content that should be exact")
@@ -103,7 +105,7 @@ func TestFileCache_ConcurrentAccess(t *testing.T) {
 }
 
 func TestPathMutex(t *testing.T) {
-	pm := &pathMutex{lock: map[string]*fileLock{}}
+	pm := &provider.PathMutex{Lock: map[string]*provider.FileLock{}}
 
 	mu := pm.MutexAt("sometestpath")
 	mu.Lock()
@@ -134,7 +136,7 @@ func TestPathMutex(t *testing.T) {
 
 	wg.Wait()
 
-	if l := len(pm.lock); l > 0 {
+	if l := len(pm.Lock); l > 0 {
 		t.Errorf("unexpected lock length: want 0, got %d", l)
 	}
 }
@@ -142,9 +144,9 @@ func TestPathMutex(t *testing.T) {
 func BenchmarkFileCache_Get(b *testing.B) {
 	dir := createTempDir(b)
 
-	fc, err := newFileCache(dir, time.Minute, false)
+	fc, err := provider.NewFileCache(dir, time.Minute, false)
 	if err != nil {
-		b.Errorf("unexpected newFileCache error: %v", err)
+		b.Errorf("unexpected NewFileCache error: %v", err)
 	}
 
 	_ = fc.Set(testCacheKey, []byte("some random cache content that should be exact"), time.Minute)

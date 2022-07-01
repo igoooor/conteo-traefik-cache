@@ -15,8 +15,13 @@ import (
 	"strings"
 	"time"
 
+	provider "github.com/igoooor/plugin-simplecache-conteo/provider/local"
 	"github.com/pquerna/cachecontrol"
 )
+
+func main() {
+	log.Println("Hello World")
+}
 
 // Config configures the middleware.
 type Config struct {
@@ -72,9 +77,17 @@ const (
 	acceptHeader     = "Accept"
 )
 
+type CacheSystem interface {
+	Get(string) ([]byte, error)
+	DeleteAll(string)
+	Delete(string)
+	Set(string, []byte, time.Duration) error
+	Close()
+}
+
 type cache struct {
 	name  string
-	cache *fileCache
+	cache CacheSystem
 	cfg   *Config
 	next  http.Handler
 	// keysRegexp map[string]keysRegexpInner
@@ -90,7 +103,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, errors.New("cleanup must be greater or equal to 1")
 	}
 
-	fc, err := newFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
+	fc, err := provider.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
 	if err != nil {
 		return nil, err
 	}

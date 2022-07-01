@@ -1,5 +1,5 @@
 // Package plugin_simplecache_conteo is a plugin to cache responses to disk.
-package plugin_simplecache_conteo
+package local
 
 import (
 	"encoding/binary"
@@ -17,22 +17,22 @@ import (
 
 var errCacheMiss = errors.New("cache miss")
 
-type fileCache struct {
+type FileCache struct {
 	path   string
-	pm     *pathMutex
+	pm     *PathMutex
 	items  map[string][]byte
 	memory bool
 }
 
-func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, error) {
+func NewFileCache(path string, vacuum time.Duration, memory bool) (*FileCache, error) {
 	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("invalid cache path: %w", err)
 	}
 
-	fc := &fileCache{
+	fc := &FileCache{
 		path:   path,
-		pm:     &pathMutex{lock: map[string]*fileLock{}},
+		pm:     &PathMutex{Lock: map[string]*FileLock{}},
 		items:  map[string][]byte{},
 		memory: memory,
 	}
@@ -42,7 +42,7 @@ func newFileCache(path string, vacuum time.Duration, memory bool) (*fileCache, e
 	return fc, nil
 }
 
-func (c *fileCache) vacuum(interval time.Duration) {
+func (c *FileCache) vacuum(interval time.Duration) {
 	timer := time.NewTicker(interval)
 	defer timer.Stop()
 
@@ -52,7 +52,7 @@ func (c *fileCache) vacuum(interval time.Duration) {
 	}
 }
 
-func (c *fileCache) vacuumFile(path string, info os.FileInfo, err error) error {
+func (c *FileCache) vacuumFile(path string, info os.FileInfo, err error) error {
 	switch {
 	case err != nil:
 		return err
@@ -78,7 +78,7 @@ func (c *fileCache) vacuumFile(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func (c *fileCache) readFromMemory(path string) ([]byte, bool) {
+func (c *FileCache) readFromMemory(path string) ([]byte, bool) {
 	var data = []byte{}
 	if c.memory {
 		var ok bool
@@ -92,7 +92,7 @@ func (c *fileCache) readFromMemory(path string) ([]byte, bool) {
 	return data, false
 }
 
-func (c *fileCache) Get(key string) ([]byte, error) {
+func (c *FileCache) Get(key string) ([]byte, error) {
 	mu := c.pm.MutexAt(key)
 	mu.RLock()
 	defer mu.RUnlock()
@@ -129,7 +129,7 @@ func (c *fileCache) Get(key string) ([]byte, error) {
 	return data[8:], nil
 }
 
-func (c *fileCache) DeleteAll(flushType string) {
+func (c *FileCache) DeleteAll(flushType string) {
 	if flushType == "all" || flushType == "file" {
 		// log.Println(">>> delete file cache")
 		_ = filepath.Walk(c.path, c.deleteFile)
@@ -139,7 +139,18 @@ func (c *fileCache) DeleteAll(flushType string) {
 	}
 }
 
-func (c *fileCache) deleteFile(path string, info os.FileInfo, err error) error {
+func (c *FileCache) Delete(path string) {
+	mu := c.pm.MutexAt(filepath.Base(path))
+	mu.Lock()
+	defer mu.Unlock()
+
+	_, err := readFile(path)
+	if err == nil {
+		_ = os.Remove(path)
+	}
+}
+
+func (c *FileCache) deleteFile(path string, info os.FileInfo, err error) error {
 	switch {
 	case err != nil:
 		return err
@@ -147,16 +158,8 @@ func (c *fileCache) deleteFile(path string, info os.FileInfo, err error) error {
 		return nil
 	}
 
-	mu := c.pm.MutexAt(filepath.Base(path))
-	mu.Lock()
-	defer mu.Unlock()
+	c.Delete(path)
 
-	_, err = readFile(path)
-	if err != nil {
-		return nil
-	}
-
-	_ = os.Remove(path)
 	return nil
 }
 
@@ -174,7 +177,7 @@ func readFile(path string) ([]byte, error) {
 
 }
 
-func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
+func (c *FileCache) Set(key string, val []byte, expiry time.Duration) error {
 	mu := c.pm.MutexAt(key)
 	mu.Lock()
 	defer mu.Unlock()
@@ -214,6 +217,9 @@ func (c *fileCache) Set(key string, val []byte, expiry time.Duration) error {
 	return nil
 }
 
+func (c *FileCache) Close() {
+}
+
 func keyHash(key string) [4]byte {
 	h := crc32.Checksum([]byte(key), crc32.IEEETable)
 
@@ -238,22 +244,22 @@ func keyPath(path, key string) string {
 	)
 }
 
-type pathMutex struct {
+type PathMutex struct {
 	mu   sync.Mutex
-	lock map[string]*fileLock
+	Lock map[string]*FileLock
 }
 
-func (m *pathMutex) MutexAt(path string) *fileLock {
+func (m *PathMutex) MutexAt(path string) *FileLock {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if fl, ok := m.lock[path]; ok {
+	if fl, ok := m.Lock[path]; ok {
 		fl.ref++
 		// log.Println(">>> Lock exists, fl.ref: ", fl.ref)
 		return fl
 	}
 
-	fl := &fileLock{ref: 1}
+	fl := &FileLock{ref: 1}
 	fl.cleanup = func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -263,37 +269,37 @@ func (m *pathMutex) MutexAt(path string) *fileLock {
 		// log.Println(">>> Lock cleanup, fl.ref: ", fl.ref)
 		if fl.ref == 0 {
 			// log.Println(">>> ref = 0, delete lock: ", path)
-			delete(m.lock, path)
+			delete(m.Lock, path)
 		}
 	}
-	m.lock[path] = fl
+	m.Lock[path] = fl
 	// log.Println(">>> Lock: ", path)
 	// log.Println(">>> fl.ref: ", fl.ref)
 
 	return fl
 }
 
-type fileLock struct {
+type FileLock struct {
 	ref     int
 	cleanup func()
 
 	mu sync.RWMutex
 }
 
-func (l *fileLock) RLock() {
+func (l *FileLock) RLock() {
 	l.mu.RLock()
 }
 
-func (l *fileLock) RUnlock() {
+func (l *FileLock) RUnlock() {
 	l.mu.RUnlock()
 	l.cleanup()
 }
 
-func (l *fileLock) Lock() {
+func (l *FileLock) Lock() {
 	l.mu.Lock()
 }
 
-func (l *fileLock) Unlock() {
+func (l *FileLock) Unlock() {
 	l.mu.Unlock()
 	l.cleanup()
 }
