@@ -6,8 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	provider "github.com/igoooor/plugin-simplecache-conteo/provider/badger"
-	"github.com/xujiajun/nutsdb"
+	provider "github.com/igoooor/plugin-simplecache-conteo/provider/api"
+	"github.com/igoooor/plugin-simplecache-conteo/provider/local"
+	// "github.com/xujiajun/nutsdb"
 )
 
 type CacheSystem interface {
@@ -18,15 +19,40 @@ type CacheSystem interface {
 	Close()
 }
 
+// provider "github.com/igoooor/plugin-simplecache-conteo/provider/api"
 // provider "github.com/igoooor/plugin-simplecache-conteo/provider/badger"
 // provider "github.com/igoooor/plugin-simplecache-conteo/provider/local"
 // provider "github.com/igoooor/plugin-simplecache-conteo/provider/nutsdb"
 
 func main() {
+	var cache CacheSystem
+	cache, err := provider.NewFileCache("http://localhost:8081")
+	if err != nil {
+		log.Println("Main cache not available, using local cache")
+		cache, err = local.NewFileCache("cache", time.Duration(60)*time.Second, false)
+		if err != nil {
+			return
+		}
+	}
+
+	cache.Set("test", []byte("test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1"), time.Duration(60)*time.Second)
+
+	val, err := cache.Get("yoloo")
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return
+	}
+	fmt.Println(string(val))
+
+	defer cache.Close()
+}
+
+func mainOld() {
 	fmt.Println("Hello World")
 
 	var cache CacheSystem
-	cache, err := provider.NewFileCache("/Users/igorweigel/webpages/plugin-simplecache/cdn", time.Duration(60)*time.Second, false)
+	//cache, err := provider.NewFileCache("/Users/igorweigel/webpages/plugin-simplecache/cdn", time.Duration(60)*time.Second, false)
+	cache, err := provider.NewFileCache("/Users/igorweigel/webpages/plugin-simplecache/cdn" /*, time.Duration(60)*time.Second, false*/)
 	if err != nil {
 		return
 	}
@@ -69,6 +95,7 @@ func main() {
 	fmt.Println(string(val))
 }
 
+/*
 func mainWhat() {
 	// Open the database located in the /tmp/nutsdb directory.
 	// It will be created if it doesn't exist.
@@ -83,10 +110,10 @@ func mainWhat() {
 	key := []byte("name12")
 	bucket := "bucket1"
 
-	/*db.Update(
+	db.Update(
 	func(tx *nutsdb.Tx) error {
 		return tx.Put(bucket, key, []byte("yolo"), uint32(60))
-	})*/
+	})
 
 	if err := db.View(
 		func(tx *nutsdb.Tx) error {
@@ -100,3 +127,4 @@ func mainWhat() {
 		log.Println(err)
 	}
 }
+*/

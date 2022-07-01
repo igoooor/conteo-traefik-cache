@@ -15,7 +15,8 @@ import (
 	"strings"
 	"time"
 
-	provider "github.com/igoooor/plugin-simplecache-conteo/provider/local"
+	"github.com/igoooor/plugin-simplecache-conteo/provider/api"
+	"github.com/igoooor/plugin-simplecache-conteo/provider/local"
 	"github.com/pquerna/cachecontrol"
 )
 
@@ -103,9 +104,16 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, errors.New("cleanup must be greater or equal to 1")
 	}
 
-	fc, err := provider.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
+	var fc CacheSystem
+	var err error
+	// fc, err := provider.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
+	fc, err = api.NewFileCache(cfg.Path)
 	if err != nil {
-		return nil, err
+		log.Println("Main cache not available, using local cache")
+		fc, err = local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	/*keysRegexp := make(map[string]keysRegexpInner, len(cfg.SurrogateKeys))
