@@ -1,4 +1,4 @@
-package plugin_simplecache_conteo
+package conteo_traefik_cache
 
 import (
 	"context"
@@ -52,7 +52,7 @@ func TestNew(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := New(context.Background(), nil, test.cfg, "simplecache")
+			_, err := New(context.Background(), nil, test.cfg, "conteotraefikcache")
 
 			if test.wantErr && err == nil {
 				t.Fatal("expected error on bad regexp format")
@@ -74,7 +74,7 @@ func TestCache_ServeHTTP(t *testing.T) {
 		DisableMethod: false,
 	}}
 
-	c, err := New(context.Background(), http.HandlerFunc(next), cfg, "simplecache")
+	c, err := New(context.Background(), http.HandlerFunc(next), cfg, "conteotraefikcache")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-# Simple Cache
+# Conteo Traefik Cache
 
 This is a fork from https://github.com/traefik/plugin-simplecache
 
@@ -16,7 +16,7 @@ Static:
   token="xxx"
 
 [experimental.plugins.cache]
-  modulename = "github.com/igoooor/plugin-simplecache-conteo"
+  modulename = "github.com/igoooor/conteo-traefik-cache"
   version = "v0.0.1"
 ```
 

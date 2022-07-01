@@ -1,4 +1,4 @@
-module github.com/igoooor/plugin-simplecache-conteo
+module github.com/igoooor/conteo-traefik-cache
 
 go 1.15
 

@@ -1,4 +1,4 @@
-package plugin_simplecache_conteo
+package conteo_traefik_cache
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	provider "github.com/igoooor/plugin-simplecache-conteo/provider/local"
+	provider "github.com/igoooor/conteo-traefik-cache/provider/local"
 )
 
 const testCacheKey = "GETlocalhost:8080/test/path"

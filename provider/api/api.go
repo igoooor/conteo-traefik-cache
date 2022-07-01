@@ -1,4 +1,4 @@
-// Package plugin_simplecache_conteo is a plugin to cache responses to disk.
+// Package conteo_traefik_cache is a plugin to cache responses to disk.
 package api
 
 import (

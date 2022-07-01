@@ -1,7 +1,7 @@
-displayName: Simple Cache Conteo
-summary: Simple cache plugin middleware caches responses on disk.
+displayName: Conteo Traefik Cache
+summary: Cache plugin middleware caches responses on external cache API.
 type: middleware
-import: github.com/igoooor/plugin-simplecache-conteo
+import: github.com/igoooor/conteo-traefik-cache
 compatibility: TODO
 testData:
   path: /tmp

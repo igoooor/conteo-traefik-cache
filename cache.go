@@ -1,5 +1,5 @@
-// Package plugin_simplecache_conteo is a plugin to cache responses to disk.
-package plugin_simplecache_conteo
+// Package conteo_traefik_cache is a plugin to cache responses to disk.
+package conteo_traefik_cache
 
 import (
 	"context"
@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/igoooor/plugin-simplecache-conteo/provider/api"
-	"github.com/igoooor/plugin-simplecache-conteo/provider/local"
+	"github.com/igoooor/conteo-traefik-cache/provider/api"
+	"github.com/igoooor/conteo-traefik-cache/provider/local"
 
-	// "github.com/igoooor/plugin-simplecache-conteo/provider/local"
+	// "github.com/igoooor/conteo-traefik-cache/provider/local"
 	"github.com/pquerna/cachecontrol"
 )
 

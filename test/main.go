@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	provider "github.com/igoooor/plugin-simplecache-conteo/provider/api"
-	"github.com/igoooor/plugin-simplecache-conteo/provider/local"
+	provider "github.com/igoooor/conteo-traefik-cache/provider/api"
+	"github.com/igoooor/conteo-traefik-cache/provider/local"
 	// "github.com/xujiajun/nutsdb"
 )
 
@@ -21,10 +21,10 @@ type CacheSystem interface {
 	Check(bool) bool
 }
 
-// provider "github.com/igoooor/plugin-simplecache-conteo/provider/api"
-// provider "github.com/igoooor/plugin-simplecache-conteo/provider/badger"
-// provider "github.com/igoooor/plugin-simplecache-conteo/provider/local"
-// provider "github.com/igoooor/plugin-simplecache-conteo/provider/nutsdb"
+// provider "github.com/igoooor/conteo-traefik-cache/provider/api"
+// provider "github.com/igoooor/conteo-traefik-cache/provider/badger"
+// provider "github.com/igoooor/conteo-traefik-cache/provider/local"
+// provider "github.com/igoooor/conteo-traefik-cache/provider/nutsdb"
 
 func main() {
 	var cache CacheSystem
@@ -62,8 +62,8 @@ func mainOld() {
 	fmt.Println("Hello World")
 
 	var cache CacheSystem
-	//cache, err := provider.NewFileCache("/Users/igorweigel/webpages/plugin-simplecache/cdn", time.Duration(60)*time.Second, false)
-	cache, err := provider.NewFileCache("/Users/igorweigel/webpages/plugin-simplecache/cdn" /*, time.Duration(60)*time.Second, false*/)
+	//cache, err := provider.NewFileCache("/Users/igorweigel/webpages/conteo-traefik-cache/cdn", time.Duration(60)*time.Second, false)
+	cache, err := provider.NewFileCache("/Users/igorweigel/webpages/conteo-traefik-cache/cdn" /*, time.Duration(60)*time.Second, false*/)
 	if err != nil {
 		return
 	}
