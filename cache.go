@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	provider "github.com/igoooor/plugin-simplecache-conteo/provider/local"
+	provider "github.com/igoooor/plugin-simplecache-conteo/provider/badger"
 	"github.com/pquerna/cachecontrol"
 )
 
