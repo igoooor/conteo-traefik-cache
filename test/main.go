@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	provider "github.com/igoooor/plugin-simplecache-conteo/provider/api"
@@ -17,6 +18,7 @@ type CacheSystem interface {
 	Delete(string)
 	Set(string, []byte, time.Duration) error
 	Close()
+	Check(bool) bool
 }
 
 // provider "github.com/igoooor/plugin-simplecache-conteo/provider/api"
@@ -27,6 +29,8 @@ type CacheSystem interface {
 func main() {
 	var cache CacheSystem
 	cache, err := provider.NewFileCache("http://localhost:8081")
+	available := cache.Check(true)
+	log.Printf("available: %v", available)
 	if err != nil {
 		log.Println("Main cache not available, using local cache")
 		cache, err = local.NewFileCache("cache", time.Duration(60)*time.Second, false)
@@ -39,7 +43,14 @@ func main() {
 
 	val, err := cache.Get("yoloo")
 	if err != nil {
-		fmt.Printf("%v\n", err)
+		message := err.Error()
+		log.Println(message)
+		if strings.Contains(message, "connect: connection refused") {
+			log.Println("connect: connection refused")
+		} else {
+			log.Println("yolo")
+		}
+		//fmt.Printf("%v\n", err)
 		return
 	}
 	fmt.Println(string(val))

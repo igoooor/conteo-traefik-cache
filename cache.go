@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/igoooor/plugin-simplecache-conteo/provider/api"
+	"github.com/igoooor/plugin-simplecache-conteo/provider/local"
+
 	// "github.com/igoooor/plugin-simplecache-conteo/provider/local"
 	"github.com/pquerna/cachecontrol"
 )
@@ -78,19 +80,22 @@ const (
 	acceptHeader     = "Accept"
 )
 
-/*type CacheSystem interface {
+type CacheSystem interface {
 	Get(string) ([]byte, error)
 	DeleteAll(string)
 	Delete(string)
 	Set(string, []byte, time.Duration) error
 	Close()
-}*/
+	Check(bool) bool
+}
 
 type cache struct {
-	name  string
-	cache api.FileCache
-	cfg   *Config
-	next  http.Handler
+	name               string
+	cache              api.FileCache
+	cacheBackup        local.FileCache
+	cfg                *Config
+	next               http.Handler
+	mainCacheAvailable bool
 	// keysRegexp map[string]keysRegexpInner
 }
 
@@ -109,6 +114,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 	if err != nil {
 		return nil, err
 	}
+
 	// instead of:
 	//var fc CacheSystem
 	//var err error
@@ -120,6 +126,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 	//		return nil, err
 	//	}
 	//}
+	cacheBackup, _ := local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
 
 	/*keysRegexp := make(map[string]keysRegexpInner, len(cfg.SurrogateKeys))
 	// baseRegexp := regexp.MustCompile(".+")
@@ -145,10 +152,12 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 	}*/
 
 	m := &cache{
-		name:  name,
-		cache: *fc,
-		cfg:   cfg,
-		next:  next,
+		name:               name,
+		cache:              *fc,
+		cacheBackup:        *cacheBackup,
+		cfg:                cfg,
+		next:               next,
+		mainCacheAvailable: fc.Check(true),
 		//keysRegexp: keysRegexp,
 	}
 
@@ -184,8 +193,13 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := m.cache.Get(key)
-	if err == nil {
+	b, err := m.getCache().Get(key)
+	if err != nil {
+		m.handleCacheError(err)
+		w.WriteHeader(500)
+		return
+	}
+	if b != nil {
 		var data cacheData
 
 		err := json.Unmarshal(b, &data)
@@ -201,7 +215,6 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(cacheHeader, cs)
 	}
 
-	// log.Println("--------- cache miss:", key)
 	rw := &responseWriter{ResponseWriter: w}
 	m.next.ServeHTTP(rw, r)
 
@@ -223,10 +236,9 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error serializing cache item: %v", err)
 	}
 
-	// matchSurrogateKeys := m.matchSurrogateKeys(r)
-
-	if err = m.cache.Set(key, b, expiry); err != nil {
-		log.Printf("Error setting cache item: %v", err)
+	if err = m.getCache().Set(key, b, expiry); err != nil {
+		log.Println("Error setting cache item")
+		m.handleCacheError(err)
 	}
 }
 
@@ -248,7 +260,7 @@ func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (t
 
 func (m *cache) flushAllCache(r *http.Request) {
 	if flushType := r.Header.Get(m.cfg.FlushHeader); flushType != "" {
-		m.cache.DeleteAll(flushType)
+		m.getCache().DeleteAll(flushType)
 	}
 }
 
@@ -332,6 +344,22 @@ func (m *cache) cacheKey(r *http.Request) string {
 	}
 
 	return key
+}
+
+func (m *cache) getCache() CacheSystem {
+	if m.cache.Check(!m.mainCacheAvailable) {
+		return &m.cache
+	}
+
+	return &m.cacheBackup
+}
+
+func (m *cache) handleCacheError(err error) {
+	message := err.Error()
+	if strings.Contains(message, "connect: connection refused") {
+		m.mainCacheAvailable = false
+	}
+	log.Println(err)
 }
 
 type responseWriter struct {

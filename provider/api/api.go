@@ -11,7 +11,8 @@ import (
 )
 
 type FileCache struct {
-	path string
+	path   string
+	status bool
 }
 
 func NewFileCache(path string) (*FileCache, error) {
@@ -24,8 +25,18 @@ func NewFileCache(path string) (*FileCache, error) {
 	if err != nil {
 		return nil, err
 	}*/
+	_, err := http.Get(fc.path)
+	fc.status = err == nil
 
 	return fc, nil
+}
+
+func (c *FileCache) Check(refresh bool) bool {
+	if refresh {
+		_, err := http.Get(c.path)
+		c.status = err == nil
+	}
+	return c.status
 }
 
 func encodeKey(key string) string {
@@ -37,6 +48,10 @@ func (c *FileCache) Get(key string) ([]byte, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, nil
 	}
 
 	responseData, err := ioutil.ReadAll(response.Body)
