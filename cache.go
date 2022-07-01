@@ -196,10 +196,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	b, err := m.getCache().Get(key)
 	if err != nil {
 		m.handleCacheError(err)
-		w.WriteHeader(500)
-		return
-	}
-	if b != nil {
+	} else if b != nil {
 		var data cacheData
 
 		err := json.Unmarshal(b, &data)
