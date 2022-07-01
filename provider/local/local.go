@@ -25,7 +25,11 @@ type FileCache struct {
 }
 
 func NewFileCache(path string, vacuum time.Duration, memory bool) (*FileCache, error) {
-	path = strings.TrimSuffix(path, "/") + "/local-backup"
+	if strings.HasPrefix(path, "/") {
+		path = strings.TrimSuffix(path, "/") + "/local-backup"
+	} else {
+		path = "/tmp/local-backup/"
+	}
 	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("invalid cache path: %w", err)
