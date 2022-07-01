@@ -22,9 +22,7 @@ import (
 	"github.com/pquerna/cachecontrol"
 )
 
-func main() {
-	log.Println("Hello World")
-}
+const healthcheckPeriod = 300 * time.Second
 
 // Config configures the middleware.
 type Config struct {
@@ -36,8 +34,8 @@ type Config struct {
 	FlushHeader     string     `json:"flushHeader" yaml:"flushHeader" toml:"flushHeader"`
 	NextGenFormats  []string   `json:"nextGenFormats" yaml:"nextGenFormats" toml:"nextGenFormats"`
 	Headers         []string   `json:"headers" yaml:"headers" toml:"headers"`
-	BypassHeaders   []string   `json:"bypassHeaders" yaml:"bypassHeaders" toml:"bypassHeaders"`
 	Key             KeyContext `json:"key" yaml:"key" toml:"key"`
+	Debug           bool       `json:"debug" yaml:"debug" toml:"debug"`
 	// SurrogateKeys   map[string]SurrogateKeys `json:"surrogateKeys" yaml:"surrogateKeys" toml:"surrogateKeys"`
 }
 
@@ -66,8 +64,8 @@ func CreateConfig() *Config {
 		FlushHeader:     "X-Cache-Flush",
 		NextGenFormats:  []string{},
 		Headers:         []string{},
-		BypassHeaders:   []string{},
 		Key:             KeyContext{},
+		Debug:           false,
 	}
 }
 
@@ -126,7 +124,10 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 	//		return nil, err
 	//	}
 	//}
-	cacheBackup, _ := local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
+	cacheBackup, err := local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
+	if err != nil {
+		return nil, err
+	}
 
 	/*keysRegexp := make(map[string]keysRegexpInner, len(cfg.SurrogateKeys))
 	// baseRegexp := regexp.MustCompile(".+")
@@ -151,6 +152,8 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		keysRegexp[key] = innerKey
 	}*/
 
+	log.Printf("Creating cache for %v", cacheBackup)
+
 	m := &cache{
 		name:               name,
 		cache:              *fc,
@@ -160,6 +163,8 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		mainCacheAvailable: fc.Check(true),
 		//keysRegexp: keysRegexp,
 	}
+
+	go m.cacheHealthcheck(healthcheckPeriod)
 
 	return m, nil
 }
@@ -208,6 +213,10 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if m.cfg.Debug {
+		log.Printf("Cache %s", cs)
+	}
+
 	if m.cfg.AddStatusHeader {
 		w.Header().Set(cacheHeader, cs)
 	}
@@ -236,6 +245,9 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err = m.getCache().Set(key, b, expiry); err != nil {
 		log.Println("Error setting cache item")
 		m.handleCacheError(err)
+	}
+	if m.cfg.Debug {
+		log.Printf("Cache set %s", key)
 	}
 }
 
@@ -276,22 +288,16 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
 		w.Header().Set(ageHeader, strconv.FormatUint(age, 10))
 	}
 
+	if m.cfg.Debug {
+		log.Printf("Cache hit")
+	}
+
 	w.WriteHeader(data.Status)
 	_, _ = w.Write(data.Body)
 }
 
 func (m *cache) bypassingHeaders(r *http.Request) bool {
-	if r.Header.Get("Cache-Control") == "no-cache" {
-		return true
-	}
-
-	for _, header := range m.cfg.BypassHeaders {
-		if r.Header.Get(header) != "" {
-			return true
-		}
-	}
-
-	return false
+	return r.Header.Get("Cache-Control") == "no-cache"
 }
 
 /*func (m *cache) matchSurrogateKeys(r *http.Request) []string {
@@ -340,11 +346,15 @@ func (m *cache) cacheKey(r *http.Request) string {
 		}
 	}
 
+	if m.cfg.Debug {
+		log.Printf("Cache key: %s", key)
+	}
+
 	return key
 }
 
 func (m *cache) getCache() CacheSystem {
-	if m.cache.Check(!m.mainCacheAvailable) {
+	if m.mainCacheAvailable {
 		return &m.cache
 	}
 
@@ -357,6 +367,18 @@ func (m *cache) handleCacheError(err error) {
 		m.mainCacheAvailable = false
 	}
 	log.Println(err)
+}
+
+func (m *cache) cacheHealthcheck(interval time.Duration) {
+	timer := time.NewTicker(interval)
+	defer timer.Stop()
+
+	for range timer.C {
+		m.mainCacheAvailable = m.cache.Check(true)
+		if m.cfg.Debug {
+			log.Printf("Cache healthcheck: %v", m.mainCacheAvailable)
+		}
+	}
 }
 
 type responseWriter struct {
