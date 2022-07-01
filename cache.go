@@ -88,7 +88,7 @@ type CacheSystem interface {
 
 type cache struct {
 	name  string
-	cache CacheSystem
+	cache *CacheSystem
 	cfg   *Config
 	next  http.Handler
 	// keysRegexp map[string]keysRegexpInner
@@ -149,7 +149,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 
 	m := &cache{
 		name:  name,
-		cache: fc,
+		cache: &fc,
 		cfg:   cfg,
 		next:  next,
 		//keysRegexp: keysRegexp,
