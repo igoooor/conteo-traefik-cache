@@ -77,7 +77,7 @@ func CreateConfig() *Config {
 const (
 	cacheHeader      = "Cache-Status"
 	ageHeader        = "Age"
-	cacheHitStatus   = "hit; ttl=%d"
+	cacheHitStatus   = "hit; ttl=%d; src=%s"
 	cacheMissStatus  = "miss"
 	cacheErrorStatus = "error"
 	acceptHeader     = "Accept"
@@ -297,7 +297,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
 		now := uint64(time.Now().Unix())
 		age := now - data.Created
 		ttl := data.Expiry - now
-		w.Header().Set(cacheHeader, fmt.Sprintf(cacheHitStatus, ttl))
+		w.Header().Set(cacheHeader, fmt.Sprintf(cacheHitStatus, ttl, m.getCacheType()))
 		w.Header().Set(ageHeader, strconv.FormatUint(age, 10))
 	}
 
@@ -372,6 +372,14 @@ func (m *cache) getCache() CacheSystem {
 	}
 
 	return &m.cacheBackup
+}
+
+func (m *cache) getCacheType() string {
+	if m.mainCacheAvailable {
+		return "api"
+	}
+
+	return "local"
 }
 
 func (m *cache) handleCacheError(err error) {
