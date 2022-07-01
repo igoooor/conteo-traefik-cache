@@ -36,6 +36,7 @@ type Config struct {
 	Headers         []string   `json:"headers" yaml:"headers" toml:"headers"`
 	Key             KeyContext `json:"key" yaml:"key" toml:"key"`
 	Debug           bool       `json:"debug" yaml:"debug" toml:"debug"`
+	LocalCacheOnly  bool       `json:"localCacheOnly" yaml:"localCacheOnly" toml:"localCacheOnly"`
 	// SurrogateKeys   map[string]SurrogateKeys `json:"surrogateKeys" yaml:"surrogateKeys" toml:"surrogateKeys"`
 }
 
@@ -66,6 +67,7 @@ func CreateConfig() *Config {
 		Headers:         []string{},
 		Key:             KeyContext{},
 		Debug:           false,
+		LocalCacheOnly:  false,
 	}
 }
 
@@ -154,17 +156,24 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 
 	log.Printf("[Cache] DEBUG Creating cache for %v", cacheBackup)
 
+	mainCacheAvailable := false
+	if !cfg.LocalCacheOnly {
+		mainCacheAvailable = fc.Check(true)
+	}
+
 	m := &cache{
 		name:               name,
 		cache:              *fc,
 		cacheBackup:        *cacheBackup,
 		cfg:                cfg,
 		next:               next,
-		mainCacheAvailable: fc.Check(true),
+		mainCacheAvailable: mainCacheAvailable,
 		//keysRegexp: keysRegexp,
 	}
 
-	go m.cacheHealthcheck(healthcheckPeriod)
+	if !m.cfg.LocalCacheOnly {
+		go m.cacheHealthcheck(healthcheckPeriod)
+	}
 
 	return m, nil
 }
