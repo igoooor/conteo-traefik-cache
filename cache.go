@@ -65,9 +65,12 @@ func CreateConfig() *Config {
 		FlushHeader:     "X-Cache-Flush",
 		NextGenFormats:  []string{},
 		Headers:         []string{},
-		Key:             KeyContext{},
-		Debug:           false,
-		LocalCacheOnly:  false,
+		Key: KeyContext{
+			DisableHost:   false,
+			DisableMethod: false,
+		},
+		Debug:          false,
+		LocalCacheOnly: false,
 	}
 }
 
@@ -85,7 +88,6 @@ type CacheSystem interface {
 	DeleteAll(string)
 	Delete(string)
 	Set(string, []byte, time.Duration) error
-	Close()
 	Check(bool) bool
 }
 
@@ -116,16 +118,16 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 	}
 
 	// instead of:
-	//var fc CacheSystem
-	//var err error
-	//fc, err = api.NewFileCache(cfg.Path)
-	//if err != nil {
+	// var fc CacheSystem
+	// var err error
+	// fc, err = api.NewFileCache(cfg.Path)
+	// if err != nil {
 	//	log.Println("Main cache not available, using local cache")
 	//	fc, err = local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
 	//	if err != nil {
 	//		return nil, err
 	//	}
-	//}
+	// }
 	cacheBackup, err := local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
 	if err != nil {
 		return nil, err
@@ -154,7 +156,9 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		keysRegexp[key] = innerKey
 	}*/
 
-	log.Printf("[Cache] DEBUG Creating cache for %v", cacheBackup)
+	if cfg.Debug {
+		log.Printf("[Cache] DEBUG Creating cache for %v", cacheBackup)
+	}
 
 	mainCacheAvailable := false
 	if !cfg.LocalCacheOnly {
@@ -371,8 +375,7 @@ func (m *cache) getCache() CacheSystem {
 }
 
 func (m *cache) handleCacheError(err error) {
-	message := err.Error()
-	if strings.Contains(message, "connect: connection refused") {
+	if strings.Contains(err.Error(), "connect: connection refused") {
 		m.mainCacheAvailable = false
 	}
 	log.Println(err)

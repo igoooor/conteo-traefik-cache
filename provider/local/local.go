@@ -1,4 +1,4 @@
-// Package conteo_traefik_cache is a plugin to cache responses to disk.
+// Package local is a local file system cache
 package local
 
 import (
@@ -17,6 +17,7 @@ import (
 
 var errCacheMiss = errors.New("cache miss")
 
+// Cache DB implementation
 type FileCache struct {
 	path   string
 	pm     *PathMutex
@@ -24,6 +25,7 @@ type FileCache struct {
 	memory bool
 }
 
+// NewFileCache creates a new file cache
 func NewFileCache(path string, vacuum time.Duration, memory bool) (*FileCache, error) {
 	if strings.HasPrefix(path, "http") {
 		path = "/tmp/local-backup/"
@@ -45,6 +47,7 @@ func NewFileCache(path string, vacuum time.Duration, memory bool) (*FileCache, e
 	return fc, nil
 }
 
+// Check availability of the cache
 func (c *FileCache) Check(refresh bool) bool {
 	return true
 }
@@ -54,7 +57,7 @@ func (c *FileCache) vacuum(interval time.Duration) {
 	defer timer.Stop()
 
 	for range timer.C {
-		// log.Println(">>> vaccum file cache")
+		// log.Println(">>> vacuum file cache")
 		_ = filepath.Walk(c.path, c.vacuumFile)
 	}
 }
@@ -99,6 +102,7 @@ func (c *FileCache) readFromMemory(path string) ([]byte, bool) {
 	return data, false
 }
 
+// Get returns the value for the given key
 func (c *FileCache) Get(key string) ([]byte, error) {
 	mu := c.pm.MutexAt(key)
 	mu.RLock()
@@ -136,6 +140,7 @@ func (c *FileCache) Get(key string) ([]byte, error) {
 	return data[8:], nil
 }
 
+// DeleteAll deletes all the cache files
 func (c *FileCache) DeleteAll(flushType string) {
 	if flushType == "all" || flushType == "file" {
 		// log.Println(">>> delete file cache")
@@ -146,6 +151,7 @@ func (c *FileCache) DeleteAll(flushType string) {
 	}
 }
 
+// Delete deletes the cache file
 func (c *FileCache) Delete(path string) {
 	mu := c.pm.MutexAt(filepath.Base(path))
 	mu.Lock()
@@ -184,6 +190,7 @@ func readFile(path string) ([]byte, error) {
 
 }
 
+// Set sets the value for the given key into the cache
 func (c *FileCache) Set(key string, val []byte, expiry time.Duration) error {
 	mu := c.pm.MutexAt(key)
 	mu.Lock()
@@ -218,13 +225,10 @@ func (c *FileCache) Set(key string, val []byte, expiry time.Duration) error {
 	}
 
 	if c.memory {
-		c.items[p] = append(t[:], val[:]...)
+		c.items[p] = append(t[:], val...)
 	}
 
 	return nil
-}
-
-func (c *FileCache) Close() {
 }
 
 func keyHash(key string) [4]byte {

@@ -1,4 +1,4 @@
-// Package conteo_traefik_cache is a plugin to cache responses to disk.
+// Package api is a api cache
 package api
 
 import (
@@ -10,11 +10,13 @@ import (
 	"time"
 )
 
+// Cache DB implementation
 type FileCache struct {
 	path   string
 	status bool
 }
 
+// NewFileCache creates a new FileCache instance.
 func NewFileCache(path string) (*FileCache, error) {
 	fc := &FileCache{
 		path: strings.TrimSuffix(path, "/") + "/",
@@ -31,6 +33,7 @@ func NewFileCache(path string) (*FileCache, error) {
 	return fc, nil
 }
 
+// Check availability of cache system
 func (c *FileCache) Check(refresh bool) bool {
 	if refresh {
 		// _, err := http.Get(c.path)
@@ -54,6 +57,7 @@ func encodeKey(key string) string {
 	return base64.URLEncoding.EncodeToString([]byte(key))
 }
 
+// Get returns the value for the given key.
 func (c *FileCache) Get(key string) ([]byte, error) {
 	response, err := http.Get(c.path + encodeKey(key))
 
@@ -73,6 +77,7 @@ func (c *FileCache) Get(key string) ([]byte, error) {
 	return responseData, nil
 }
 
+// DeleteAll deletes all keys in the cache.
 func (c *FileCache) DeleteAll(flushType string) {
 	req, err := http.NewRequest(http.MethodDelete, c.path+flushType, nil)
 	if err != nil {
@@ -89,10 +94,12 @@ func (c *FileCache) DeleteAll(flushType string) {
 	return
 }
 
+// Delete deletes the given key from the cache.
 func (c *FileCache) Delete(key string) {
 
 }
 
+// Set sets the value for the given key.
 func (c *FileCache) Set(key string, val []byte, expiry time.Duration) error {
 	req, err := http.NewRequest(http.MethodPut, c.path+encodeKey(key), strings.NewReader(string(val)))
 	if err != nil {
@@ -108,8 +115,4 @@ func (c *FileCache) Set(key string, val []byte, expiry time.Duration) error {
 	}
 
 	return nil
-}
-
-func (c *FileCache) Close() {
-
 }

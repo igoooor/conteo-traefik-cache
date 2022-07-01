@@ -17,7 +17,6 @@ type CacheSystem interface {
 	DeleteAll(string)
 	Delete(string)
 	Set(string, []byte, time.Duration) error
-	Close()
 	Check(bool) bool
 }
 
@@ -50,29 +49,25 @@ func main() {
 		} else {
 			log.Println("yolo")
 		}
-		//fmt.Printf("%v\n", err)
+		// fmt.Printf("%v\n", err)
 		return
 	}
 	fmt.Println(string(val))
-
-	defer cache.Close()
 }
 
 func mainOld() {
 	fmt.Println("Hello World")
 
 	var cache CacheSystem
-	//cache, err := provider.NewFileCache("/Users/igorweigel/webpages/conteo-traefik-cache/cdn", time.Duration(60)*time.Second, false)
+	// cache, err := provider.NewFileCache("/Users/igorweigel/webpages/conteo-traefik-cache/cdn", time.Duration(60)*time.Second, false)
 	cache, err := provider.NewFileCache("/Users/igorweigel/webpages/conteo-traefik-cache/cdn" /*, time.Duration(60)*time.Second, false*/)
 	if err != nil {
 		return
 	}
 
-	defer cache.Close()
-
 	for n := 0; n < 1000000; n++ {
 		cache.Set("test"+strconv.Itoa(n), []byte("test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1"), time.Duration(5)*time.Second)
-		//cache.Set("test", []byte("test2"), time.Duration(60)*time.Second)
+		// cache.Set("test", []byte("test2"), time.Duration(60)*time.Second)
 
 		/*val, err := cache.Get("test")
 		if err != nil {
@@ -91,16 +86,16 @@ func mainOld() {
 		}
 		fmt.Println(string(val))
 	}
-	//cache.DeleteAll("")
+	// cache.DeleteAll("")
 
 	return
-	//cache.Delete("test6")
-	//cache.Delete("test6")
+	// cache.Delete("test6")
+	// cache.Delete("test6")
 	cache.DeleteAll("")
-	//cache.DeleteAll("")
+	// cache.DeleteAll("")
 	val, err := cache.Get("test")
 	if err != nil {
-		//fmt.Printf("%v\n", err)
+		// fmt.Printf("%v\n", err)
 		return
 	}
 	fmt.Println(string(val))

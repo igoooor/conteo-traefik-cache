@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 	}{
 		{
 			name: "should error if path is not valid",
-			cfg: &Config{Path: "/foo/bar", MaxExpiry: 300, Cleanup: 600, Key: KeyContext{
+			cfg: &Config{Path: "/foo/bar", MaxExpiry: 300, Cleanup: 600, LocalCacheOnly: true, Key: KeyContext{
 				DisableHost:   false,
 				DisableMethod: false,
 			}},
@@ -26,7 +26,7 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "should error if maxExpiry <= 1",
-			cfg: &Config{Path: os.TempDir(), MaxExpiry: 1, Cleanup: 600, Key: KeyContext{
+			cfg: &Config{Path: os.TempDir(), MaxExpiry: 1, Cleanup: 600, LocalCacheOnly: true, Key: KeyContext{
 				DisableHost:   false,
 				DisableMethod: false,
 			}},
@@ -34,7 +34,7 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "should error if cleanup <= 1",
-			cfg: &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 1, Key: KeyContext{
+			cfg: &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 1, LocalCacheOnly: true, Key: KeyContext{
 				DisableHost:   false,
 				DisableMethod: false,
 			}},
@@ -42,7 +42,7 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "should be valid",
-			cfg: &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 600, Key: KeyContext{
+			cfg: &Config{Path: os.TempDir(), MaxExpiry: 300, Cleanup: 600, LocalCacheOnly: true, Key: KeyContext{
 				DisableHost:   false,
 				DisableMethod: false,
 			}},
