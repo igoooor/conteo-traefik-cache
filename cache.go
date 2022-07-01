@@ -78,17 +78,17 @@ const (
 	acceptHeader     = "Accept"
 )
 
-type CacheSystem interface {
+/*type CacheSystem interface {
 	Get(string) ([]byte, error)
 	DeleteAll(string)
 	Delete(string)
 	Set(string, []byte, time.Duration) error
 	Close()
-}
+}*/
 
 type cache struct {
 	name  string
-	cache *CacheSystem
+	cache api.FileCache
 	cfg   *Config
 	next  http.Handler
 	// keysRegexp map[string]keysRegexpInner
@@ -105,10 +105,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 	}
 
 	// temporarily disable local backup if api not available
-	var fc CacheSystem
-	var err error
-	fc, err = api.NewFileCache(cfg.Path)
-	//fc, err := api.NewFileCache(cfg.Path)
+	fc, err := api.NewFileCache(cfg.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +146,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 
 	m := &cache{
 		name:  name,
-		cache: &fc,
+		cache: *fc,
 		cfg:   cfg,
 		next:  next,
 		//keysRegexp: keysRegexp,
