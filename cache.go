@@ -152,7 +152,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		keysRegexp[key] = innerKey
 	}*/
 
-	log.Printf("Creating cache for %v", cacheBackup)
+	log.Printf("[Cache] DEBUG Creating cache for %v", cacheBackup)
 
 	m := &cache{
 		name:               name,
@@ -214,7 +214,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if m.cfg.Debug {
-		fmt.Errorf("Cache %s", cs)
+		log.Printf("[Cache] DEBUG %s", cs)
 	}
 
 	if m.cfg.AddStatusHeader {
@@ -247,7 +247,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.handleCacheError(err)
 	}
 	if m.cfg.Debug {
-		fmt.Errorf("Cache set %s", key)
+		log.Printf("[Cache] DEBUG set %s", key)
 	}
 }
 
@@ -289,7 +289,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
 	}
 
 	if m.cfg.Debug {
-		fmt.Errorf("Cache hit")
+		log.Printf("[Cache] DEBUG hit")
 	}
 
 	w.WriteHeader(data.Status)
@@ -347,7 +347,7 @@ func (m *cache) cacheKey(r *http.Request) string {
 	}
 
 	if m.cfg.Debug {
-		fmt.Errorf("Cache key: %s", key)
+		log.Printf("[Cache] DEBUG key: %s", key)
 	}
 
 	return key
@@ -376,7 +376,7 @@ func (m *cache) cacheHealthcheck(interval time.Duration) {
 	for range timer.C {
 		m.mainCacheAvailable = m.cache.Check(true)
 		if m.cfg.Debug {
-			fmt.Errorf("Cache healthcheck: %v", m.mainCacheAvailable)
+			log.Printf("[Cache] DEBUG healthcheck: %v", m.mainCacheAvailable)
 		}
 	}
 }
