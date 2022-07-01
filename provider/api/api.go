@@ -17,11 +17,12 @@ func NewFileCache(path string) (*FileCache, error) {
 	fc := &FileCache{
 		path: strings.TrimSuffix(path, "/") + "/",
 	}
-	
-	_, err := http.Get(fc.path)
+
+	// temporarily disable local backup if api not available
+	/*_, err := http.Get(fc.path)
 	if err != nil {
 		return nil, err
-	}
+	}*/
 
 	return fc, nil
 }

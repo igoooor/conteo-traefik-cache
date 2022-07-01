@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/igoooor/plugin-simplecache-conteo/provider/api"
-	"github.com/igoooor/plugin-simplecache-conteo/provider/local"
+	// "github.com/igoooor/plugin-simplecache-conteo/provider/local"
 	"github.com/pquerna/cachecontrol"
 )
 
@@ -78,17 +78,17 @@ const (
 	acceptHeader     = "Accept"
 )
 
-type CacheSystem interface {
+/*type CacheSystem interface {
 	Get(string) ([]byte, error)
 	DeleteAll(string)
 	Delete(string)
 	Set(string, []byte, time.Duration) error
 	Close()
-}
+}*/
 
 type cache struct {
 	name  string
-	cache CacheSystem
+	cache api.FileCache
 	cfg   *Config
 	next  http.Handler
 	// keysRegexp map[string]keysRegexpInner
@@ -104,17 +104,22 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, errors.New("cleanup must be greater or equal to 1")
 	}
 
-	var fc CacheSystem
-	var err error
-	// fc, err := provider.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
-	fc, err = api.NewFileCache(cfg.Path)
+	// temporarily disable local backup if api not available
+	fc, err := api.NewFileCache(cfg.Path)
 	if err != nil {
-		log.Println("Main cache not available, using local cache")
-		fc, err = local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
+	// instead of:
+	//var fc CacheSystem
+	//var err error
+	//fc, err = api.NewFileCache(cfg.Path)
+	//if err != nil {
+	//	log.Println("Main cache not available, using local cache")
+	//	fc, err = local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
 
 	/*keysRegexp := make(map[string]keysRegexpInner, len(cfg.SurrogateKeys))
 	// baseRegexp := regexp.MustCompile(".+")
@@ -141,7 +146,7 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 
 	m := &cache{
 		name:  name,
-		cache: fc,
+		cache: *fc,
 		cfg:   cfg,
 		next:  next,
 		//keysRegexp: keysRegexp,
