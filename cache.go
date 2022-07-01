@@ -214,7 +214,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if m.cfg.Debug {
-		log.Printf("Cache %s", cs)
+		fmt.Printf("Cache %s", cs)
 	}
 
 	if m.cfg.AddStatusHeader {
@@ -247,7 +247,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.handleCacheError(err)
 	}
 	if m.cfg.Debug {
-		log.Printf("Cache set %s", key)
+		fmt.Printf("Cache set %s", key)
 	}
 }
 
@@ -289,7 +289,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
 	}
 
 	if m.cfg.Debug {
-		log.Printf("Cache hit")
+		fmt.Printf("Cache hit")
 	}
 
 	w.WriteHeader(data.Status)
@@ -347,7 +347,7 @@ func (m *cache) cacheKey(r *http.Request) string {
 	}
 
 	if m.cfg.Debug {
-		log.Printf("Cache key: %s", key)
+		fmt.Printf("Cache key: %s", key)
 	}
 
 	return key
@@ -376,7 +376,7 @@ func (m *cache) cacheHealthcheck(interval time.Duration) {
 	for range timer.C {
 		m.mainCacheAvailable = m.cache.Check(true)
 		if m.cfg.Debug {
-			log.Printf("Cache healthcheck: %v", m.mainCacheAvailable)
+			fmt.Printf("Cache healthcheck: %v", m.mainCacheAvailable)
 		}
 	}
 }
