@@ -33,7 +33,18 @@ func NewFileCache(path string) (*FileCache, error) {
 
 func (c *FileCache) Check(refresh bool) bool {
 	if refresh {
-		_, err := http.Get(c.path)
+		// _, err := http.Get(c.path)
+		// c.status = err == nil
+
+		req, err := http.NewRequest(http.MethodGet, c.path+"ping", nil)
+		if err != nil {
+			return false
+		}
+
+		client := &http.Client{}
+		req.Host = "ping"
+
+		_, err = client.Do(req)
 		c.status = err == nil
 	}
 	return c.status
