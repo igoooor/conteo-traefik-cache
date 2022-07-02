@@ -76,13 +76,14 @@ func CreateConfig() *Config {
 }
 
 const (
-	cacheHeader      = "Cache-Status"
-	ageHeader        = "Age"
-	etagHeader       = "Etag"
-	cacheHitStatus   = "hit; ttl=%d; src=%s"
-	cacheMissStatus  = "miss"
-	cacheErrorStatus = "error"
-	acceptHeader     = "Accept"
+	cacheHeader       = "Cache-Status"
+	ageHeader         = "Age"
+	etagHeader        = "Etag"
+	requestEtagHeader = "If-None-Match"
+	cacheHitStatus    = "hit; ttl=%d; src=%s"
+	cacheMissStatus   = "miss"
+	cacheErrorStatus  = "error"
+	acceptHeader      = "Accept"
 )
 
 type CacheSystem interface {
@@ -314,9 +315,9 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 	}
 
 	log.Printf("[Cache] DEBUG etag: %s", etag)
-	log.Printf("[Cache] DEBUG request etag: %s", r.Header.Get(etagHeader))
+	log.Printf("[Cache] DEBUG if-none-match: %s", r.Header.Get(requestEtagHeader))
 
-	if etag != "" && r.Header.Get(etagHeader) == etag {
+	if etag != "" && r.Header.Get(requestEtagHeader) == etag {
 		w.WriteHeader(304)
 		return
 	}
