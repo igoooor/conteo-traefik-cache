@@ -289,6 +289,10 @@ func (m *cache) flushAllCache(r *http.Request) {
 }
 
 func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Request) {
+	if m.cfg.Debug {
+		log.Printf("[Cache] DEBUG hit")
+	}
+
 	for key, vals := range data.Headers {
 		for _, val := range vals {
 			w.Header().Add(key, val)
@@ -296,6 +300,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 	}
 
 	//requestHasEtag := false
+	var etag string
 	if m.cfg.AddStatusHeader {
 		now := uint64(time.Now().Unix())
 		age := now - data.Created
@@ -304,12 +309,16 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		w.Header().Set(ageHeader, strconv.FormatUint(age, 10))
 		bs := make([]byte, 8)
 		binary.LittleEndian.PutUint64(bs, data.Created)
-		etag := base64.URLEncoding.EncodeToString(bs)
+		etag = base64.URLEncoding.EncodeToString(bs)
 		w.Header().Set(etagHeader, etag)
 	}
 
-	if m.cfg.Debug {
-		log.Printf("[Cache] DEBUG hit")
+	log.Printf("[Cache] DEBUG etag: %s", etag)
+	log.Printf("[Cache] DEBUG request etag: %s", r.Header.Get(etagHeader))
+
+	if etag != "" && r.Header.Get(etagHeader) == etag {
+		w.WriteHeader(304)
+		return
 	}
 
 	w.WriteHeader(data.Status)
