@@ -4,6 +4,7 @@ package conteo_traefik_cache
 import (
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -77,6 +78,7 @@ func CreateConfig() *Config {
 const (
 	cacheHeader      = "Cache-Status"
 	ageHeader        = "Age"
+	etagHeader       = "Etag"
 	cacheHitStatus   = "hit; ttl=%d; src=%s"
 	cacheMissStatus  = "miss"
 	cacheErrorStatus = "error"
@@ -221,7 +223,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			cs = cacheErrorStatus
 		} else {
-			m.sendCacheFile(w, data)
+			m.sendCacheFile(w, data, r)
 			return
 		}
 	}
@@ -286,19 +288,25 @@ func (m *cache) flushAllCache(r *http.Request) {
 	}
 }
 
-func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
+func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Request) {
 	for key, vals := range data.Headers {
 		for _, val := range vals {
 			w.Header().Add(key, val)
 		}
 	}
 
+	//requestHasEtag := false
 	if m.cfg.AddStatusHeader {
 		now := uint64(time.Now().Unix())
 		age := now - data.Created
 		ttl := data.Expiry - now
 		w.Header().Set(cacheHeader, fmt.Sprintf(cacheHitStatus, ttl, m.getCacheType()))
 		w.Header().Set(ageHeader, strconv.FormatUint(age, 10))
+		//etag = base64.StdEncoding.EncodeToString([]byte(string(data.Created)))
+		bs := []byte{}
+		binary.LittleEndian.PutUint64(bs, data.Created)
+		etag := base64.StdEncoding.EncodeToString(bs)
+		w.Header().Set(etagHeader, etag)
 	}
 
 	if m.cfg.Debug {
@@ -306,6 +314,11 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData) {
 	}
 
 	w.WriteHeader(data.Status)
+
+	//if requestHasEtag {
+	//	return
+	//}
+
 	_, _ = w.Write(data.Body)
 }
 
