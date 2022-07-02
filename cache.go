@@ -309,6 +309,7 @@ func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (t
 func (m *cache) flushAllCache(r *http.Request) {
 	if flushType := r.Header.Get(m.cfg.FlushHeader); flushType != "" {
 		m.getCache().DeleteAll(flushType)
+		m.cacheBackup.DeleteAll(flushType)
 	}
 }
 
