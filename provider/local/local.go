@@ -191,7 +191,7 @@ func readFile(path string) ([]byte, error) {
 }
 
 // Set sets the value for the given key into the cache
-func (c *FileCache) Set(key string, val []byte, expiry time.Duration) error {
+func (c *FileCache) Set(key string, val []byte, expiry time.Duration, etag string) error {
 	mu := c.pm.MutexAt(key)
 	mu.Lock()
 	defer mu.Unlock()

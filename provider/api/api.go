@@ -110,13 +110,14 @@ func (c *FileCache) Delete(key string) {
 }
 
 // Set sets the value for the given key.
-func (c *FileCache) Set(key string, val []byte, expiry time.Duration) error {
+func (c *FileCache) Set(key string, val []byte, expiry time.Duration, etag string) error {
 	req, err := http.NewRequest(http.MethodPut, c.path+encodeKey(key), strings.NewReader(string(val)))
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("X-TTL", strconv.Itoa(int(expiry.Seconds())))
+	req.Header.Set("X-Etag", etag)
 	client := &http.Client{}
 
 	_, err = client.Do(req)

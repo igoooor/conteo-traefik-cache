@@ -91,7 +91,7 @@ type CacheSystem interface {
 	Get(string, string) ([]byte, bool, error)
 	DeleteAll(string)
 	Delete(string)
-	Set(string, []byte, time.Duration) error
+	Set(string, []byte, time.Duration, string) error
 	Check(bool) bool
 }
 
@@ -191,6 +191,7 @@ type cacheData struct {
 	Headers map[string][]string
 	Body    []byte
 	Created uint64
+	Etag    string
 	Expiry  uint64
 }
 
@@ -246,11 +247,13 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	createdTs := uint64(time.Now().Unix())
 	data := cacheData{
 		Status:  rw.status,
 		Headers: w.Header(),
 		Body:    rw.body,
-		Created: uint64(time.Now().Unix()),
+		Created: createdTs,
+		Etag:    calculateEtag(createdTs),
 		Expiry:  uint64(time.Now().Add(expiry).Unix()),
 	}
 
@@ -259,7 +262,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error serializing cache item: %v", err)
 	}
 
-	if err = m.getCache().Set(key, b, expiry); err != nil {
+	if err = m.getCache().Set(key, b, expiry, data.Etag); err != nil {
 		log.Println("Error setting cache item")
 		m.handleCacheError(err)
 	}
@@ -295,8 +298,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		log.Printf("[Cache] DEBUG hit")
 	}
 
-	etag := calculateEtag(data)
-	if r.Header.Get(requestEtagHeader) == etag && r.Header.Get(skipEtagHeader) == "" {
+	if r.Header.Get(requestEtagHeader) == data.Etag && r.Header.Get(skipEtagHeader) == "" {
 		w.WriteHeader(304)
 		return
 	}
@@ -315,15 +317,15 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		w.Header().Set(ageHeader, strconv.FormatUint(age, 10))
 	}
 
-	w.Header().Set(etagHeader, etag)
+	w.Header().Set(etagHeader, data.Etag)
 	w.WriteHeader(data.Status)
 
 	_, _ = w.Write(data.Body)
 }
 
-func calculateEtag(data cacheData) string {
+func calculateEtag(created uint64) string {
 	bs := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bs, data.Created)
+	binary.LittleEndian.PutUint64(bs, created)
 	return base64.URLEncoding.EncodeToString(bs)
 }
 
