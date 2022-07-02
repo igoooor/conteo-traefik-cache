@@ -302,10 +302,9 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		ttl := data.Expiry - now
 		w.Header().Set(cacheHeader, fmt.Sprintf(cacheHitStatus, ttl, m.getCacheType()))
 		w.Header().Set(ageHeader, strconv.FormatUint(age, 10))
-		//etag = base64.StdEncoding.EncodeToString([]byte(string(data.Created)))
-		bs := []byte{}
+		bs := make([]byte, 8)
 		binary.LittleEndian.PutUint64(bs, data.Created)
-		etag := base64.StdEncoding.EncodeToString(bs)
+		etag := base64.URLEncoding.EncodeToString(bs)
 		w.Header().Set(etagHeader, etag)
 	}
 
