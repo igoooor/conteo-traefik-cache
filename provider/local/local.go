@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var errCacheMiss = errors.New("cache miss")
+var errCacheMiss = errors.New("[Cache] DEBUG miss")
 
 // Cache DB implementation
 type FileCache struct {
