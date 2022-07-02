@@ -216,16 +216,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// check for local etag to avoid api calls
-	requestEtag := getRequestEtag(r)
-	if matchEtag, _, err := m.cacheBackup.Get("etag"+key, ""); err == nil && string(matchEtag) == requestEtag {
-		if m.cfg.Debug {
-			log.Printf("[Cache] DEBUG hit + match local etag")
-		}
-		w.WriteHeader(304)
-		return
-	}
-	b, matchEtag, err := m.getCache().Get(key, requestEtag)
+	b, matchEtag, err := m.getCache().Get(key, getRequestEtag(r))
 	if matchEtag {
 		if m.cfg.Debug {
 			log.Printf("[Cache] DEBUG hit + match etag")
@@ -277,9 +268,6 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error serializing cache item: %v", err)
 	}
-
-	// store local etage
-	m.cacheBackup.Set("etag"+key, []byte(data.Etag), expiry, "")
 
 	if err = m.getCache().Set(key, b, expiry, data.Etag); err != nil {
 		log.Println("Error setting cache item")
