@@ -22,19 +22,19 @@ func TestFileCache(t *testing.T) {
 		t.Errorf("unexpected NewFileCache error: %v", err)
 	}
 
-	_, err = fc.Get(testCacheKey)
+	_, _, err = fc.Get(testCacheKey, "")
 	if err == nil {
 		t.Error("unexpected cache content")
 	}
 
 	cacheContent := []byte("some random cache content that should be exact")
 
-	err = fc.Set(testCacheKey, cacheContent, time.Second)
+	err = fc.Set(testCacheKey, cacheContent, time.Second, "")
 	if err != nil {
 		t.Errorf("unexpected cache set error: %v", err)
 	}
 
-	got, err := fc.Get(testCacheKey)
+	got, _, err := fc.Get(testCacheKey, "")
 	if err != nil {
 		t.Errorf("unexpected cache get error: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestFileCache_ConcurrentAccess(t *testing.T) {
 		defer wg.Done()
 
 		for {
-			got, _ := fc.Get(testCacheKey)
+			got, _, _ := fc.Get(testCacheKey, "")
 			if got != nil && !bytes.Equal(got, cacheContent) {
 				panic(fmt.Errorf("unexpected cache content: want %s, got %s", cacheContent, got))
 			}
@@ -88,7 +88,7 @@ func TestFileCache_ConcurrentAccess(t *testing.T) {
 		defer wg.Done()
 
 		for {
-			err = fc.Set(testCacheKey, cacheContent, time.Second)
+			err = fc.Set(testCacheKey, cacheContent, time.Second, "")
 			if err != nil {
 				panic(fmt.Errorf("unexpected cache set error: %w", err))
 			}
@@ -149,12 +149,12 @@ func BenchmarkFileCache_Get(b *testing.B) {
 		b.Errorf("unexpected NewFileCache error: %v", err)
 	}
 
-	_ = fc.Set(testCacheKey, []byte("some random cache content that should be exact"), time.Minute)
+	_ = fc.Set(testCacheKey, []byte("some random cache content that should be exact"), time.Minute, "")
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, _ = fc.Get(testCacheKey)
+		_, _, _ = fc.Get(testCacheKey, "")
 	}
 }

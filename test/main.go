@@ -13,10 +13,10 @@ import (
 )
 
 type CacheSystem interface {
-	Get(string) ([]byte, error)
+	Get(string, string) ([]byte, bool, error)
 	DeleteAll(string)
 	Delete(string)
-	Set(string, []byte, time.Duration) error
+	Set(string, []byte, time.Duration, string) error
 	Check(bool) bool
 }
 
@@ -38,9 +38,9 @@ func main() {
 		}
 	}
 
-	cache.Set("test", []byte("test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1"), time.Duration(60)*time.Second)
+	cache.Set("test", []byte("test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1"), time.Duration(60)*time.Second, "")
 
-	val, err := cache.Get("yoloo")
+	val, _, err := cache.Get("yoloo", "")
 	if err != nil {
 		message := err.Error()
 		log.Println(message)
@@ -66,7 +66,7 @@ func mainOld() {
 	}
 
 	for n := 0; n < 1000000; n++ {
-		cache.Set("test"+strconv.Itoa(n), []byte("test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1"), time.Duration(5)*time.Second)
+		cache.Set("test"+strconv.Itoa(n), []byte("test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1test1"), time.Duration(5)*time.Second, "")
 		// cache.Set("test", []byte("test2"), time.Duration(60)*time.Second)
 
 		/*val, err := cache.Get("test")
@@ -79,7 +79,7 @@ func mainOld() {
 	log.Printf("done writing")
 
 	for n := 0; n < 10; n++ {
-		val, err := cache.Get("test" + strconv.Itoa(n))
+		val, _, err := cache.Get("test"+strconv.Itoa(n), "")
 		if err != nil {
 			fmt.Printf("%v\n", err)
 			continue
@@ -93,7 +93,7 @@ func mainOld() {
 	// cache.Delete("test6")
 	cache.DeleteAll("")
 	// cache.DeleteAll("")
-	val, err := cache.Get("test")
+	val, _, err := cache.Get("test", "")
 	if err != nil {
 		// fmt.Printf("%v\n", err)
 		return
