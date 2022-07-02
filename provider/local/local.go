@@ -114,7 +114,7 @@ func (c *FileCache) Get(key string) ([]byte, error) {
 
 	if !foundInMemory {
 		if info, err := os.Stat(p); err != nil || info.IsDir() {
-			return nil, errCacheMiss
+			return nil, nil
 		}
 
 		var err error
@@ -129,7 +129,7 @@ func (c *FileCache) Get(key string) ([]byte, error) {
 	expires := time.Unix(int64(binary.LittleEndian.Uint64(data[:8])), 0)
 	if expires.Before(time.Now()) {
 		_ = os.Remove(p)
-		return nil, errCacheMiss
+		return nil, nil
 	}
 
 	// store it back into memory
