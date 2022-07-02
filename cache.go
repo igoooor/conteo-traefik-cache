@@ -216,7 +216,14 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, _, err := m.getCache().Get(key, r.Header.Get(requestEtagHeader))
+	b, matchEtag, err := m.getCache().Get(key, r.Header.Get(requestEtagHeader))
+	if matchEtag {
+		if m.cfg.Debug {
+			log.Printf("[Cache] DEBUG hit + match etag")
+		}
+		w.WriteHeader(304)
+		return
+	}
 	if err != nil {
 		m.handleCacheError(err)
 	} else if b != nil {
