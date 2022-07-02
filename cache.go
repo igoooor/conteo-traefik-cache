@@ -80,6 +80,7 @@ const (
 	ageHeader         = "Age"
 	etagHeader        = "Etag"
 	requestEtagHeader = "If-None-Match"
+	skipEtagHeader    = "X-Skip-Etag"
 	cacheHitStatus    = "hit; ttl=%d; src=%s"
 	cacheMissStatus   = "miss"
 	cacheErrorStatus  = "error"
@@ -87,7 +88,7 @@ const (
 )
 
 type CacheSystem interface {
-	Get(string) ([]byte, error)
+	Get(string, string) ([]byte, bool, error)
 	DeleteAll(string)
 	Delete(string)
 	Set(string, []byte, time.Duration) error
@@ -214,7 +215,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := m.getCache().Get(key)
+	b, _, err := m.getCache().Get(key, r.Header.Get(requestEtagHeader))
 	if err != nil {
 		m.handleCacheError(err)
 	} else if b != nil {
@@ -308,16 +309,11 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		ttl := data.Expiry - now
 		w.Header().Set(cacheHeader, fmt.Sprintf(cacheHitStatus, ttl, m.getCacheType()))
 		w.Header().Set(ageHeader, strconv.FormatUint(age, 10))
-		bs := make([]byte, 8)
-		binary.LittleEndian.PutUint64(bs, data.Created)
-		etag = base64.URLEncoding.EncodeToString(bs)
+		etag = calculateEtag(data)
 		w.Header().Set(etagHeader, etag)
 	}
 
-	log.Printf("[Cache] DEBUG etag: %s", etag)
-	log.Printf("[Cache] DEBUG if-none-match: %s", r.Header.Get(requestEtagHeader))
-
-	if etag != "" && r.Header.Get(requestEtagHeader) == etag {
+	if etag != "" && r.Header.Get(requestEtagHeader) == etag && r.Header.Get(skipEtagHeader) == "" {
 		w.WriteHeader(304)
 		return
 	}
@@ -329,6 +325,12 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 	//}
 
 	_, _ = w.Write(data.Body)
+}
+
+func calculateEtag(data cacheData) string {
+	bs := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bs, data.Created)
+	return base64.URLEncoding.EncodeToString(bs)
 }
 
 func (m *cache) bypassingHeaders(r *http.Request) bool {
