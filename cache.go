@@ -216,7 +216,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, matchEtag, err := m.getCache().Get(key, r.Header.Get(requestEtagHeader))
+	b, matchEtag, err := m.getCache().Get(key, getRequestEtag(r))
 	if matchEtag {
 		if m.cfg.Debug {
 			log.Printf("[Cache] DEBUG hit + match etag")
@@ -305,7 +305,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		log.Printf("[Cache] DEBUG hit")
 	}
 
-	if r.Header.Get(requestEtagHeader) == data.Etag && r.Header.Get(skipEtagHeader) == "" {
+	if getRequestEtag(r) == data.Etag {
 		w.WriteHeader(304)
 		return
 	}
@@ -328,6 +328,13 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 	w.WriteHeader(data.Status)
 
 	_, _ = w.Write(data.Body)
+}
+
+func getRequestEtag(r *http.Request) string {
+	if r.Header.Get(skipEtagHeader) != "" {
+		return "n/a"
+	}
+	return r.Header.Get(requestEtagHeader)
 }
 
 func calculateEtag(created uint64) string {
