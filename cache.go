@@ -279,7 +279,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// store local etage
-	m.cacheBackup.Set("etag"+key, []byte(requestEtag), expiry, "")
+	m.cacheBackup.Set("etag"+key, []byte(data.Etag), expiry, "")
 
 	if err = m.getCache().Set(key, b, expiry, data.Etag); err != nil {
 		log.Println("Error setting cache item")
