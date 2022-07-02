@@ -58,23 +58,33 @@ func encodeKey(key string) string {
 }
 
 // Get returns the value for the given key.
-func (c *FileCache) Get(key string) ([]byte, error) {
-	response, err := http.Get(c.path + encodeKey(key))
-
+func (c *FileCache) Get(key string, etag string) ([]byte, bool, error) {
+	req, err := http.NewRequest(http.MethodGet, c.path+encodeKey(key), nil)
 	if err != nil {
-		return nil, err
+		return nil, false, err
+	}
+
+	req.Header.Set("X-Etag", etag)
+	client := &http.Client{}
+
+	response, err := client.Do(req)
+	if err != nil {
+		return nil, false, err
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return nil, nil
+		if response.StatusCode == http.StatusNotModified {
+			return nil, true, nil
+		}
+		return nil, false, nil
 	}
 
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return responseData, nil
+	return responseData, false, nil
 }
 
 // DeleteAll deletes all keys in the cache.

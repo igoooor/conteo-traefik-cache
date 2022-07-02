@@ -103,7 +103,7 @@ func (c *FileCache) readFromMemory(path string) ([]byte, bool) {
 }
 
 // Get returns the value for the given key
-func (c *FileCache) Get(key string) ([]byte, error) {
+func (c *FileCache) Get(key string, etag string) ([]byte, bool, error) {
 	mu := c.pm.MutexAt(key)
 	mu.RLock()
 	defer mu.RUnlock()
@@ -114,13 +114,13 @@ func (c *FileCache) Get(key string) ([]byte, error) {
 
 	if !foundInMemory {
 		if info, err := os.Stat(p); err != nil || info.IsDir() {
-			return nil, nil
+			return nil, false, nil
 		}
 
 		var err error
 		data, err = readFile(p)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		// log.Printf(">>>>>>>>>>>>>>>>>>> file cache hit")
@@ -129,7 +129,7 @@ func (c *FileCache) Get(key string) ([]byte, error) {
 	expires := time.Unix(int64(binary.LittleEndian.Uint64(data[:8])), 0)
 	if expires.Before(time.Now()) {
 		_ = os.Remove(p)
-		return nil, nil
+		return nil, false, nil
 	}
 
 	// store it back into memory
@@ -137,7 +137,7 @@ func (c *FileCache) Get(key string) ([]byte, error) {
 		c.items[p] = data
 	}
 
-	return data[8:], nil
+	return data[8:], false, nil
 }
 
 // DeleteAll deletes all the cache files
