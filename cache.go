@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/igoooor/conteo-traefik-cache/provider/api"
-	"github.com/igoooor/conteo-traefik-cache/provider/local"
 
 	// "github.com/igoooor/conteo-traefik-cache/provider/local"
 	"github.com/pquerna/cachecontrol"
@@ -37,7 +36,6 @@ type Config struct {
 	Headers         []string   `json:"headers" yaml:"headers" toml:"headers"`
 	Key             KeyContext `json:"key" yaml:"key" toml:"key"`
 	Debug           bool       `json:"debug" yaml:"debug" toml:"debug"`
-	LocalCacheOnly  bool       `json:"localCacheOnly" yaml:"localCacheOnly" toml:"localCacheOnly"`
 	// SurrogateKeys   map[string]SurrogateKeys `json:"surrogateKeys" yaml:"surrogateKeys" toml:"surrogateKeys"`
 }
 
@@ -71,7 +69,6 @@ func CreateConfig() *Config {
 			DisableMethod: false,
 		},
 		Debug:          false,
-		LocalCacheOnly: false,
 	}
 }
 
@@ -81,7 +78,7 @@ const (
 	etagHeader        = "Etag"
 	requestEtagHeader = "If-None-Match"
 	skipEtagHeader    = "X-Skip-Etag"
-	cacheHitStatus    = "hit; ttl=%d; src=%s"
+	cacheHitStatus    = "hit; ttl=%d"
 	cacheMissStatus   = "miss"
 	cacheErrorStatus  = "error"
 	acceptHeader      = "Accept"
@@ -98,10 +95,9 @@ type CacheSystem interface {
 type cache struct {
 	name               string
 	cache              api.FileCache
-	cacheBackup        local.FileCache
 	cfg                *Config
 	next               http.Handler
-	mainCacheAvailable bool
+	cacheAvailable     bool
 	// keysRegexp map[string]keysRegexpInner
 }
 
@@ -121,67 +117,18 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, err
 	}
 
-	// instead of:
-	// var fc CacheSystem
-	// var err error
-	// fc, err = api.NewFileCache(cfg.Path)
-	// if err != nil {
-	//	log.Println("Main cache not available, using local cache")
-	//	fc, err = local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	// }
-	cacheBackup, err := local.NewFileCache(cfg.Path, time.Duration(cfg.Cleanup)*time.Second, cfg.Memory)
-	if err != nil {
-		return nil, err
-	}
-
-	/*keysRegexp := make(map[string]keysRegexpInner, len(cfg.SurrogateKeys))
-	// baseRegexp := regexp.MustCompile(".+")
-
-	for key, regexps := range cfg.SurrogateKeys {
-		headers := make(map[string]*regexp.Regexp, len(regexps.Headers))
-		for hk, hv := range regexps.Headers {
-			//headers[hk] = baseRegexp
-			headers[hk] = nil
-			if hv != "" {
-				headers[hk] = regexp.MustCompile(hv)
-			}
-		}
-
-		//innerKey := keysRegexpInner{Headers: headers, Url: baseRegexp}
-		innerKey := keysRegexpInner{Headers: headers, Url: nil}
-
-		if regexps.URL != "" {
-			innerKey.Url = regexp.MustCompile(regexps.URL)
-		}
-
-		keysRegexp[key] = innerKey
-	}*/
-
-	if cfg.Debug {
-		log.Printf("[Cache] DEBUG Creating cache for %v", cacheBackup)
-	}
-
-	mainCacheAvailable := false
-	if !cfg.LocalCacheOnly {
-		mainCacheAvailable = fc.Check(true)
-	}
+	cacheAvailable := fc.Check(true)
 
 	m := &cache{
 		name:               name,
 		cache:              *fc,
-		cacheBackup:        *cacheBackup,
 		cfg:                cfg,
 		next:               next,
-		mainCacheAvailable: mainCacheAvailable,
+		cacheAvailable: cacheAvailable,
 		//keysRegexp: keysRegexp,
 	}
 
-	if !m.cfg.LocalCacheOnly {
-		go m.cacheHealthcheck(healthcheckPeriod)
-	}
+	go m.cacheHealthcheck(healthcheckPeriod)
 
 	return m, nil
 }
@@ -216,7 +163,15 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, matchEtag, err := m.getCache().Get(key, getRequestEtag(r))
+	cache, err := m.getCache()
+	if err != nil {
+		rw := &responseWriter{ResponseWriter: w}
+		m.next.ServeHTTP(rw, r)
+
+		return
+	}
+
+	b, matchEtag, err := cache.Get(key, getRequestEtag(r))
 	if matchEtag {
 		if m.cfg.Debug {
 			log.Printf("[Cache] DEBUG hit + match etag")
@@ -269,7 +224,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error serializing cache item: %v", err)
 	}
 
-	if err = m.getCache().Set(key, b, expiry, data.Etag); err != nil {
+	if err = cache.Set(key, b, expiry, data.Etag); err != nil {
 		log.Println("Error setting cache item")
 		m.handleCacheError(err)
 	}
@@ -296,8 +251,9 @@ func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (t
 
 func (m *cache) flushAllCache(r *http.Request) {
 	if flushType := r.Header.Get(m.cfg.FlushHeader); flushType != "" {
-		m.getCache().DeleteAll(flushType)
-		m.cacheBackup.DeleteAll(flushType)
+		if cache, err := m.getCache(); err == nil {
+			cache.DeleteAll(flushType)
+		}
 	}
 }
 
@@ -321,7 +277,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		now := uint64(time.Now().Unix())
 		age := now - data.Created
 		ttl := data.Expiry - now
-		w.Header().Set(cacheHeader, fmt.Sprintf(cacheHitStatus, ttl, m.getCacheType()))
+		w.Header().Set(cacheHeader, fmt.Sprintf(cacheHitStatus, ttl))
 		w.Header().Set(ageHeader, strconv.FormatUint(age, 10))
 	}
 
@@ -401,25 +357,17 @@ func (m *cache) cacheKey(r *http.Request) string {
 	return key
 }
 
-func (m *cache) getCache() CacheSystem {
-	if m.mainCacheAvailable {
-		return &m.cache
+func (m *cache) getCache() (CacheSystem, error) {
+	if m.cacheAvailable {
+		return &m.cache, nil
 	}
 
-	return &m.cacheBackup
-}
-
-func (m *cache) getCacheType() string {
-	if m.mainCacheAvailable {
-		return "api"
-	}
-
-	return "local"
+	return &m.cache, errors.New("Cache not available")
 }
 
 func (m *cache) handleCacheError(err error) {
 	if strings.Contains(err.Error(), "connect: connection refused") {
-		m.mainCacheAvailable = false
+		m.cacheAvailable = false
 	}
 	log.Println(err)
 }
@@ -429,9 +377,9 @@ func (m *cache) cacheHealthcheck(interval time.Duration) {
 	defer timer.Stop()
 
 	for range timer.C {
-		m.mainCacheAvailable = m.cache.Check(true)
+		m.cacheAvailable = m.cache.Check(true)
 		if m.cfg.Debug {
-			log.Printf("[Cache] DEBUG healthcheck: %v", m.mainCacheAvailable)
+			log.Printf("[Cache] DEBUG healthcheck: %v", m.cacheAvailable)
 		}
 	}
 }
