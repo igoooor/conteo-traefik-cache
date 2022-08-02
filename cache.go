@@ -68,7 +68,7 @@ func CreateConfig() *Config {
 			DisableHost:   false,
 			DisableMethod: false,
 		},
-		Debug:          false,
+		Debug: false,
 	}
 }
 
@@ -93,11 +93,11 @@ type CacheSystem interface {
 }
 
 type cache struct {
-	name               string
-	cache              api.FileCache
-	cfg                *Config
-	next               http.Handler
-	cacheAvailable     bool
+	name           string
+	cache          api.FileCache
+	cfg            *Config
+	next           http.Handler
+	cacheAvailable bool
 	// keysRegexp map[string]keysRegexpInner
 }
 
@@ -117,18 +117,19 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, err
 	}
 
-	cacheAvailable := fc.Check(true)
+	//cacheAvailable := fc.Check(true)
 
 	m := &cache{
-		name:               name,
-		cache:              *fc,
-		cfg:                cfg,
-		next:               next,
-		cacheAvailable: cacheAvailable,
+		name:           name,
+		cache:          *fc,
+		cfg:            cfg,
+		next:           next,
+		cacheAvailable: true,
+		//cacheAvailable: cacheAvailable,
 		//keysRegexp: keysRegexp,
 	}
 
-	go m.cacheHealthcheck(healthcheckPeriod)
+	// go m.cacheHealthcheck(healthcheckPeriod)
 
 	return m, nil
 }
@@ -180,7 +181,9 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		m.handleCacheError(err)
+		if m.handleCacheErrorAndExit(err, w, r) {
+			return
+		}
 	} else if b != nil {
 		var data cacheData
 
@@ -226,7 +229,9 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err = cache.Set(key, b, expiry, data.Etag); err != nil {
 		log.Println("Error setting cache item")
-		m.handleCacheError(err)
+		if m.handleCacheErrorAndExit(err, w, r) {
+			return
+		}
 	}
 	if m.cfg.Debug {
 		log.Printf("[Cache] DEBUG set %s", key)
@@ -365,11 +370,17 @@ func (m *cache) getCache() (CacheSystem, error) {
 	return &m.cache, errors.New("Cache not available")
 }
 
-func (m *cache) handleCacheError(err error) {
-	if strings.Contains(err.Error(), "connect: connection refused") {
-		m.cacheAvailable = false
-	}
+func (m *cache) handleCacheErrorAndExit(err error, w http.ResponseWriter, r *http.Request) bool {
 	log.Println(err)
+	if strings.Contains(err.Error(), "connect: connection refused") {
+		//m.cacheAvailable = false
+		rw := &responseWriter{ResponseWriter: w}
+		m.next.ServeHTTP(rw, r)
+
+		return true
+	}
+
+	return false
 }
 
 func (m *cache) cacheHealthcheck(interval time.Duration) {
