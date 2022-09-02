@@ -306,7 +306,7 @@ func calculateEtag(created uint64) string {
 }
 
 func (m *cache) bypassingHeaders(r *http.Request) bool {
-	return r.Header.Get("Cache-Control") == "no-cache"
+	return r.Header.Get("X-Conteo-Cache-Control") == "no-cache"
 }
 
 /*func (m *cache) matchSurrogateKeys(r *http.Request) []string {
