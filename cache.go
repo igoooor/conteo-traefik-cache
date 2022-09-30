@@ -355,6 +355,8 @@ func (m *cache) cacheKey(r *http.Request) string {
 		}
 	}
 
+	key = strings.TrimLeft(key, "-")
+
 	if m.cfg.Debug {
 		log.Printf("[Cache] DEBUG key: %s", key)
 	}
