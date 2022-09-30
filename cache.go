@@ -208,7 +208,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m.next.ServeHTTP(rw, r)
 
 	expiry, ok := m.cacheable(r, w, rw.status)
-	if !ok {
+	if !ok || len(rw.body) == 0 {
 		return
 	}
 
