@@ -325,7 +325,7 @@ func (m *cache) cacheKey(r *http.Request) string {
 		key += "-" + r.Host
 	}
 
-	key += "-" + r.URL.Path
+	key += "-" + strings.Split(r.URL.Path, "#")[0]
 
 	headers := ""
 
