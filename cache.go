@@ -287,6 +287,8 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 	}
 
 	w.Header().Set(etagHeader, data.Etag)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	w.WriteHeader(data.Status)
 
 	_, _ = w.Write(data.Body)
