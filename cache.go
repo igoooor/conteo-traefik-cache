@@ -267,8 +267,11 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		log.Printf("[Cache] DEBUG hit")
 	}
 
-	//w.Header().Set("Access-Control-Allow-Origin", "*")
-	//w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	fmt.Println("[Cache] Host" + r.Host)
+	log.Println("[Cache] Host" + r.Host)
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 
 	if getRequestEtag(r) == data.Etag {
 		w.WriteHeader(304)
