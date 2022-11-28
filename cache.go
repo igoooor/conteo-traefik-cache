@@ -188,7 +188,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var data cacheData
 
 		err := json.Unmarshal(b, &data)
-		if err != nil {
+		if err != nil || data.Status > 299 {
 			cs = cacheErrorStatus
 		} else {
 			m.sendCacheFile(w, data, r)
@@ -239,6 +239,10 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (time.Duration, bool) {
+	if status > 299 {
+		return 0, false
+	}
+
 	reasons, expireBy, err := cachecontrol.CachableResponseWriter(r, status, w, cachecontrol.Options{})
 	if err != nil || len(reasons) > 0 {
 		return 0, false
