@@ -1,0 +1,17 @@
+image: alpine/git
+clone:
+  depth: full 
+pipelines:
+  branches:
+    dev:
+      - step:
+          name: push to github public repo
+          script:
+            - git remote add github git@github.com:igoooor/conteo-traefik-cache.git
+            - git push github dev
+    main:
+      - step:
+          name: push to github public repo
+          script:
+            - git remote add github git@github.com:igoooor/conteo-traefik-cache.git
+            - git push github main
