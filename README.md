@@ -1,3 +1,6 @@
+Note: This repository is public and can be found at: https://github.com/igoooor/conteo-traefik-cache
+Traefik pod will git pull from that public repo. The bitbucket copy is just there for reference 
+
 # Conteo Traefik Cache
 
 This is a fork from https://github.com/traefik/plugin-simplecache
