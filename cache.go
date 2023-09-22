@@ -271,6 +271,11 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		log.Printf("[Cache] DEBUG hit")
 	}
 
+	if strings.Contains(r.Host, "cdn") {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	}
+
 	if getRequestEtag(r) == data.Etag {
 		w.WriteHeader(304)
 		return
@@ -280,11 +285,6 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		for _, val := range vals {
 			w.Header().Add(key, val)
 		}
-	}
-
-	if strings.Contains(r.Host, "cdn") {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	}
 
 	if m.cfg.AddStatusHeader {
