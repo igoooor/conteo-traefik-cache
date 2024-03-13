@@ -276,7 +276,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		return
 	}
 
-	w.Header().Set("X-Cache-Key", cacheKey)
+	w.Header().Set("X-Cache-Key", encodeKey(cacheKey))
 
 	for key, vals := range data.Headers {
 		for _, val := range vals {
@@ -426,4 +426,8 @@ func (rw *responseWriter) Write(p []byte) (int, error) {
 func (rw *responseWriter) WriteHeader(s int) {
 	rw.status = s
 	rw.ResponseWriter.WriteHeader(s)
+}
+
+func encodeKey(key string) string {
+	return base64.URLEncoding.EncodeToString([]byte(key))
 }
