@@ -191,7 +191,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil || data.Status > 299 {
 			cs = cacheErrorStatus
 		} else {
-			m.sendCacheFile(w, data, r)
+			m.sendCacheFile(w, data, r, key)
 			return
 		}
 	}
@@ -266,7 +266,7 @@ func (m *cache) flushAllCache(r *http.Request) {
 	}
 }
 
-func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Request) {
+func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Request, cacheKey string) {
 	if m.cfg.Debug {
 		log.Printf("[Cache] DEBUG hit")
 	}
@@ -275,6 +275,8 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		w.WriteHeader(304)
 		return
 	}
+
+	w.Header().Set("X-Cache-Key", cacheKey)
 
 	for key, vals := range data.Headers {
 		for _, val := range vals {
