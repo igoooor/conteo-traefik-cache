@@ -276,7 +276,7 @@ func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Req
 		return
 	}
 
-	w.Header().Set("X-Cache-Key", encodeKey(cacheKey))
+	w.Header().Set("X-Cache-Key", "/"+encodeKey(cacheKey))
 
 	for key, vals := range data.Headers {
 		for _, val := range vals {
