@@ -86,7 +86,6 @@ const (
 
 type CacheSystem interface {
 	Get(string, string) ([]byte, bool, error)
-	DeleteAll(string)
 	Delete(string)
 	Set(string, []byte, time.Duration, string) error
 	Check(bool) bool
@@ -150,7 +149,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "DELETE" {
 		w.WriteHeader(204)
 		_, _ = w.Write([]byte{})
-		m.flushAllCache(r)
+		m.deleteCacheFile(key, r)
 
 		return
 	}
@@ -188,8 +187,19 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var data cacheData
 
 		err := json.Unmarshal(b, &data)
-		if err != nil || data.Status > 299 {
+		if err != nil || data.Status > 299 || m.invalidCacheBody(data) {
+			if m.cfg.Debug {
+				if err != nil {
+					log.Printf("[Cache] DEBUG error: unmarshalling cache item: %v", err)
+				} else if data.Status > 299 {
+					log.Printf("[Cache] DEBUG error: cache item status: %d", data.Status)
+				} else {
+					log.Printf("[Cache] DEBUG error: invalid body")
+				}
+			}
 			cs = cacheErrorStatus
+			// if cache error, delete the cache data
+			cache.Delete(key)
 		} else {
 			m.sendCacheFile(w, data, r, key)
 			return
@@ -197,7 +207,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if m.cfg.Debug {
-		log.Printf("[Cache] DEBUG %s", cs)
+		log.Printf("[Cache] DEBUG cs: %s", cs)
 	}
 
 	if m.cfg.AddStatusHeader {
@@ -207,8 +217,12 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rw := &responseWriter{ResponseWriter: w}
 	m.next.ServeHTTP(rw, r)
 
-	expiry, ok := m.cacheable(r, w, rw.status)
-	if !ok || len(rw.body) == 0 {
+	if m.cfg.Debug {
+		log.Printf("[Cache] DEBUG Backend response Body length: %d", len(rw.body))
+	}
+
+	expiry, ok := m.cacheable(r, w, rw)
+	if !ok {
 		return
 	}
 
@@ -238,12 +252,33 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (time.Duration, bool) {
-	if status > 299 {
+func (m *cache) invalidCacheBody(data cacheData) bool {
+	if contentLength, ok := data.Headers["Content-Length"]; ok && len(contentLength) >= 1 {
+		if cl, err := strconv.Atoi(contentLength[0]); err == nil && cl != len(data.Body) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, rw *responseWriter) (time.Duration, bool) {
+	if rw.status > 299 {
 		return 0, false
 	}
 
-	reasons, expireBy, err := cachecontrol.CachableResponseWriter(r, status, w, cachecontrol.Options{})
+	bodyLength := len(rw.body)
+	if bodyLength == 0 {
+		return 0, false
+	}
+
+	if contentLength := w.Header().Get("Content-Length"); contentLength != "" {
+		if cl, err := strconv.Atoi(contentLength); err == nil && cl != bodyLength {
+			return 0, false
+		}
+	}
+
+	reasons, expireBy, err := cachecontrol.CachableResponseWriter(r, rw.status, w, cachecontrol.Options{})
 	if err != nil || len(reasons) > 0 {
 		return 0, false
 	}
@@ -258,10 +293,10 @@ func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (t
 	return expiry, true
 }
 
-func (m *cache) flushAllCache(r *http.Request) {
-	if flushType := r.Header.Get(m.cfg.FlushHeader); flushType != "" {
+func (m *cache) deleteCacheFile(key string, r *http.Request) {
+	if flushHeader := r.Header.Get(m.cfg.FlushHeader); flushHeader != "" {
 		if cache, err := m.getCache(); err == nil {
-			cache.DeleteAll(flushType)
+			cache.Delete(key)
 		}
 	}
 }
@@ -269,6 +304,7 @@ func (m *cache) flushAllCache(r *http.Request) {
 func (m *cache) sendCacheFile(w http.ResponseWriter, data cacheData, r *http.Request, cacheKey string) {
 	if m.cfg.Debug {
 		log.Printf("[Cache] DEBUG hit")
+		log.Printf("[Cache] DEBUG Cache Body length: %d", len(data.Body))
 	}
 
 	if getRequestEtag(r) == data.Etag {
@@ -329,7 +365,11 @@ func (m *cache) bypassingHeaders(r *http.Request) bool {
 func (m *cache) cacheKey(r *http.Request) string {
 	key := ""
 	if !m.cfg.Key.DisableMethod {
-		key += "-" + r.Method
+		if r.Method == "DELETE" {
+			key += "-GET" // DELETE requests are treated as GET for key generation
+		} else {
+			key += "-" + r.Method
+		}
 	}
 
 	if !m.cfg.Key.DisableHost {

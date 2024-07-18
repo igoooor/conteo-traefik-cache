@@ -140,17 +140,6 @@ func (c *FileCache) Get(key string, etag string) ([]byte, bool, error) {
 	return data[8:], false, nil
 }
 
-// DeleteAll deletes all the cache files
-func (c *FileCache) DeleteAll(flushType string) {
-	if flushType == "all" || flushType == "file" {
-		// log.Println(">>> delete file cache")
-		_ = filepath.Walk(c.path, c.deleteFile)
-	}
-	if c.memory && (flushType == "all" || flushType == "memory") {
-		c.items = map[string][]byte{}
-	}
-}
-
 // Delete deletes the cache file
 func (c *FileCache) Delete(path string) {
 	mu := c.pm.MutexAt(filepath.Base(path))

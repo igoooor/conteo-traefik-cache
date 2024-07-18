@@ -87,26 +87,15 @@ func (c *FileCache) Get(key string, etag string) ([]byte, bool, error) {
 	return responseData, false, nil
 }
 
-// DeleteAll deletes all keys in the cache.
-func (c *FileCache) DeleteAll(flushType string) {
-	req, err := http.NewRequest(http.MethodDelete, c.path+flushType, nil)
+// Delete deletes the given key from the cache.
+func (c *FileCache) Delete(key string) {
+	req, err := http.NewRequest(http.MethodDelete, c.path+encodeKey(key), nil)
 	if err != nil {
 		return
 	}
 
 	client := &http.Client{}
-
-	_, err = client.Do(req)
-	if err != nil {
-		return
-	}
-
-	return
-}
-
-// Delete deletes the given key from the cache.
-func (c *FileCache) Delete(key string) {
-
+	client.Do(req)
 }
 
 // Set sets the value for the given key.
