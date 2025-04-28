@@ -376,7 +376,43 @@ func (m *cache) cacheKey(r *http.Request) string {
 		key += "-" + r.Host
 	}
 
-	key += "-" + strings.Split(r.URL.Path, "#")[0]
+	// Remove any fragment identifier from the URL path
+	path := strings.Split(r.URL.Path, "#")[0]
+	
+	// Extract the parts of the path
+	pathParts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	
+	// Ensure we have at least 3 parts (media/type/hash)
+	if len(pathParts) >= 3 && pathParts[0] == "media" {
+		stack := pathParts[1]
+		hashID := pathParts[2]
+
+		// Handle extension
+		extension := ""
+		if len(pathParts) > 3 {
+			// If we have a filename, try to get extension from it
+			filename := pathParts[3]
+			if idx := strings.LastIndex(filename, "."); idx != -1 {
+				extension = filename[idx+1:]
+			}
+		} else {
+			// If no filename, try to get extension from hashID
+			if idx := strings.LastIndex(hashID, "."); idx != -1 {
+				extension = hashID[idx+1:]
+			}
+		}
+
+		// Construct the base path
+		basePath := stack + "/" + hashID
+		if extension != "" {
+			basePath += "." + extension
+		}
+		
+		key += "-" + basePath
+	} else {
+		// Fallback to the original path if it doesn't match our expected format
+		key += "-" + path
+	}
 
 	headers := ""
 
@@ -471,3 +507,4 @@ func (rw *responseWriter) WriteHeader(s int) {
 func encodeKey(key string) string {
 	return base64.URLEncoding.EncodeToString([]byte(key))
 }
+
