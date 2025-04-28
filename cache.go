@@ -405,7 +405,7 @@ func (m *cache) cacheKey(r *http.Request) string {
 		// Construct the base path
 		basePath := stack + "/" + hashID
 		if extension != "" {
-			basePath += "." + extension
+			basePath += "-" + extension
 		}
 		
 		key += "-" + basePath
