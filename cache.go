@@ -399,6 +399,7 @@ func (m *cache) cacheKey(r *http.Request) string {
 			// If no filename, try to get extension from hashID
 			if idx := strings.LastIndex(hashID, "."); idx != -1 {
 				extension = hashID[idx+1:]
+				hashID = hashID[:idx]
 			}
 		}
 
