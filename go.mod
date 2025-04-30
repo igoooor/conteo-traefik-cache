@@ -1,4 +1,4 @@
-module github.com/igoooor/conteo-traefik-cache
+module github.com/igoooor/conteo-traefik-cache-dev
 
 go 1.15
 

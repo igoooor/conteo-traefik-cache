@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	provider "github.com/igoooor/conteo-traefik-cache/provider/api"
-	"github.com/igoooor/conteo-traefik-cache/provider/local"
+	provider "github.com/igoooor/conteo-traefik-cache-dev/provider/api"
+	"github.com/igoooor/conteo-traefik-cache-dev/provider/local"
 	// "github.com/xujiajun/nutsdb"
 )
 
@@ -18,10 +18,10 @@ type CacheSystem interface {
 	Check(bool) bool
 }
 
-// provider "github.com/igoooor/conteo-traefik-cache/provider/api"
-// provider "github.com/igoooor/conteo-traefik-cache/provider/badger"
-// provider "github.com/igoooor/conteo-traefik-cache/provider/local"
-// provider "github.com/igoooor/conteo-traefik-cache/provider/nutsdb"
+// provider "github.com/igoooor/conteo-traefik-cache-dev/provider/api"
+// provider "github.com/igoooor/conteo-traefik-cache-dev/provider/badger"
+// provider "github.com/igoooor/conteo-traefik-cache-dev/provider/local"
+// provider "github.com/igoooor/conteo-traefik-cache-dev/provider/nutsdb"
 
 func main() {
 	var cache CacheSystem

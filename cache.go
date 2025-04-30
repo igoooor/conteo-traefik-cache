@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/igoooor/conteo-traefik-cache/provider/api"
+	"github.com/igoooor/conteo-traefik-cache-dev/provider/api"
 
-	// "github.com/igoooor/conteo-traefik-cache/provider/local"
+	// "github.com/igoooor/conteo-traefik-cache-dev/provider/local"
 	"github.com/pquerna/cachecontrol"
 )
 

@@ -1,7 +1,7 @@
 displayName: Conteo Traefik Cache
 summary: Cache plugin middleware caches responses on external cache API.
 type: middleware
-import: github.com/igoooor/conteo-traefik-cache
+import: github.com/igoooor/conteo-traefik-cache-dev
 compatibility: TODO
 testData:
   path: /tmp

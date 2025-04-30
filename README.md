@@ -1,4 +1,4 @@
-Note: This repository is public and can be found at: https://github.com/igoooor/conteo-traefik-cache
+Note: This repository is public and can be found at: https://github.com/igoooor/conteo-traefik-cache-dev
 Traefik pod will git pull from that public repo. The bitbucket copy is just there for reference 
 
 # Conteo Traefik Cache
@@ -19,7 +19,7 @@ Static:
   token="xxx"
 
 [experimental.plugins.cache]
-  modulename = "github.com/igoooor/conteo-traefik-cache"
+  modulename = "github.com/igoooor/conteo-traefik-cache-dev"
   version = "v0.0.1"
 ```
 
