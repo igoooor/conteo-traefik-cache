@@ -1,5 +1,5 @@
 // Package conteo_traefik_cache is a plugin to cache responses to disk.
-package conteo_traefik_cache
+package conteo_traefik_cache_dev
 
 import (
 	"context"
